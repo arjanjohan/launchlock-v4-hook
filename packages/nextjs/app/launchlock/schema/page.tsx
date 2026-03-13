@@ -7,6 +7,19 @@ import { useScaffoldEventHistory, useScaffoldReadContract } from "~~/hooks/scaff
 const ZERO_BYTES32 = `0x${"0".repeat(64)}`;
 const HOOK_DEPLOY_BLOCK = 46563894n;
 
+const formatRemaining = (totalSeconds: number) => {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+
+  if (s >= 86400) return `${d}d${h}h`;
+  if (s >= 3600) return `${h}h${m}m`;
+  if (s >= 60) return `${m}m${sec}s`;
+  return `${sec}s`;
+};
+
 const SchemaPage = () => {
   const { address } = useAccount();
 
@@ -97,7 +110,7 @@ const SchemaPage = () => {
   const now = Math.floor(Date.now() / 1000);
   const poolLockEnd = Number((launchCfg as any)?.[2] || 0);
   const remainingSeconds = Math.max(0, poolLockEnd - now);
-  const lockDays = Math.floor(remainingSeconds / 86400);
+  const remainingHuman = formatRemaining(remainingSeconds);
 
   return (
     <div className="p-8 space-y-6">
@@ -170,7 +183,7 @@ const SchemaPage = () => {
             </div>
             <div className="stat">
               <div className="stat-title">Pool Lock Remaining</div>
-              <div className="stat-value text-lg">{lockDays}d</div>
+              <div className="stat-value text-lg">{remainingHuman}</div>
               <div className="stat-desc">{remainingSeconds}s remaining</div>
             </div>
             <div className="stat">
