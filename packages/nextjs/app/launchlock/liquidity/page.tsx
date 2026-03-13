@@ -76,6 +76,27 @@ const LiquidityPage = () => {
     query: { enabled: !!tokenId },
   });
 
+  const { data: transferEvents } = useScaffoldEventHistory({
+    contractName: "PositionManager",
+    eventName: "Transfer",
+    fromBlock: HOOK_DEPLOY_BLOCK,
+    watch: true,
+    enabled: !!address,
+  });
+
+  const myTokenIds = useMemo(() => {
+    if (!address) return [] as string[];
+    const mine = new Set<string>();
+    for (const ev of transferEvents || []) {
+      const from = String(ev.args?.from || "").toLowerCase();
+      const to = String(ev.args?.to || "").toLowerCase();
+      const id = BigInt(ev.args?.tokenId || 0n).toString();
+      if (to === address.toLowerCase()) mine.add(id);
+      if (from === address.toLowerCase()) mine.delete(id);
+    }
+    return Array.from(mine).sort((a, b) => Number(b) - Number(a));
+  }, [transferEvents, address]);
+
   const mintToken = async (symbol: string) => {
     const amount = 100000n * 10n ** 18n;
     const fn = symbol === "UNI" ? writeDemoUNI : symbol === "USDC" ? writeDemoUSDC : writeDemoPEPE;
@@ -260,12 +281,25 @@ const LiquidityPage = () => {
       <div className="card bg-base-100 shadow-xl">
         <div className="card-body space-y-2">
           <h2 className="card-title">Remove Liquidity</h2>
-          <input
-            className="input input-bordered"
-            value={tokenId}
-            onChange={e => setTokenId(e.target.value)}
-            placeholder="Position tokenId"
-          />
+          <select className="select select-bordered w-full" value={tokenId} onChange={e => setTokenId(e.target.value)}>
+            <option value="">Choose your position tokenId…</option>
+            {myTokenIds.map(id => (
+              <option key={id} value={id}>
+                #{id}
+              </option>
+            ))}
+          </select>
+          <details className="collapse collapse-arrow bg-base-200">
+            <summary className="collapse-title text-sm">Manual tokenId input</summary>
+            <div className="collapse-content">
+              <input
+                className="input input-bordered w-full"
+                value={tokenId}
+                onChange={e => setTokenId(e.target.value)}
+                placeholder="Position tokenId"
+              />
+            </div>
+          </details>
           <div className="text-xs opacity-70">
             Current liquidity: {currentLiquidity ? (currentLiquidity as bigint).toString() : "-"}
           </div>

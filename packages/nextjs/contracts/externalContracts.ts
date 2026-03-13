@@ -140,6 +140,16 @@ const positionManagerAbi = [
     inputs: [{ name: "tokenId", type: "uint256" }],
     outputs: [{ name: "liquidity", type: "uint128" }],
   },
+  {
+    type: "event",
+    name: "Transfer",
+    anonymous: false,
+    inputs: [
+      { name: "from", type: "address", indexed: true },
+      { name: "to", type: "address", indexed: true },
+      { name: "tokenId", type: "uint256", indexed: true },
+    ],
+  },
 ] as const;
 
 const permit2Abi = [
