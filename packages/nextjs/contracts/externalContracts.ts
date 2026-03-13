@@ -97,6 +97,28 @@ const placeholderAbi = [
   { type: "function", name: "owner", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
 ] as const;
 
+const erc20DemoAbi = [
+  {
+    type: "function",
+    name: "balanceOf",
+    stateMutability: "view",
+    inputs: [{ name: "account", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  { type: "function", name: "decimals", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "uint8" }] },
+  { type: "function", name: "symbol", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "string" }] },
+  {
+    type: "function",
+    name: "mint",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "to", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [],
+  },
+] as const;
+
 const externalContracts = {
   1301: {
     PoolManager: {
@@ -118,6 +140,18 @@ const externalContracts = {
     LaunchLockHookExternal: {
       address: "0x8595D8d56ED94586C2050679d6b4499A75cDC200",
       abi: launchLockHookAbi,
+    },
+    DemoUNI: {
+      address: "0x98E4D8B01561228Be089b04378adAECd39884016",
+      abi: erc20DemoAbi,
+    },
+    DemoUSDC: {
+      address: "0x81fC41ffA0B48462fa280e154bB288a245a7A263",
+      abi: erc20DemoAbi,
+    },
+    DemoPEPE: {
+      address: "0x15B13dEF61E1AcCb4Ac356a2d13e0608f1643b9d",
+      abi: erc20DemoAbi,
     },
   },
   11155111: {
