@@ -447,7 +447,22 @@ const LiquidityPage = () => {
   };
 
   const removeFullRange = async () => {
-    if (!selectedPool || !address || !tokenId || !currentLiquidity) return;
+    if (!selectedPool || !address || !tokenId || !currentLiquidity || !hook?.address || !publicClient) return;
+
+    // Pre-check pool lock to avoid opaque wrapped reverts
+    const launchCfg = (await publicClient.readContract({
+      address: hook.address,
+      abi: hook.abi,
+      functionName: "launchConfigs",
+      args: [selectedPool.id],
+    })) as readonly [boolean, `0x${string}`, bigint];
+
+    const lockEnd = Number(launchCfg?.[2] || 0n);
+    const now = Math.floor(Date.now() / 1000);
+    if (launchCfg?.[0] && now < lockEnd) {
+      notification.error(`Liquidity is locked until ${new Date(lockEnd * 1000).toLocaleString()}`);
+      return;
+    }
 
     const p0 = encodeAbiParameters(
       [{ type: "uint256" }, { type: "uint256" }, { type: "uint256" }, { type: "uint256" }, { type: "bytes" }],
