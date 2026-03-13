@@ -5,6 +5,7 @@ import { useAccount } from "wagmi";
 import { useScaffoldEventHistory, useScaffoldReadContract } from "~~/hooks/scaffold-eth";
 
 const ZERO_BYTES32 = `0x${"0".repeat(64)}`;
+const HOOK_DEPLOY_BLOCK = 46563894n;
 
 const SchemaPage = () => {
   const { address } = useAccount();
@@ -15,7 +16,7 @@ const SchemaPage = () => {
   const { data: poolCreatedEvents } = useScaffoldEventHistory({
     contractName: "LaunchLockHook",
     eventName: "LaunchLockInitialized",
-    fromBlock: 0n,
+    fromBlock: HOOK_DEPLOY_BLOCK,
     watch: true,
   });
 
@@ -114,10 +115,17 @@ const SchemaPage = () => {
             <option value={ZERO_BYTES32}>Choose a pool…</option>
             {poolOptions.map(pool => (
               <option key={pool.poolId} value={pool.poolId}>
-                {pool.poolId.slice(0, 10)}...{pool.poolId.slice(-8)} | owner {pool.poolOwner.slice(0, 8)}...
+                {pool.poolId} | owner {pool.poolOwner.slice(0, 8)}...
               </option>
             ))}
           </select>
+
+          <input
+            className="input input-bordered w-full"
+            placeholder="Or paste poolId manually (0x...)"
+            value={selectedPoolId}
+            onChange={e => setSelectedPoolId(e.target.value as `0x${string}`)}
+          />
 
           <div className="text-xs bg-base-200 p-3 rounded break-all">Selected poolId: {poolId}</div>
 
