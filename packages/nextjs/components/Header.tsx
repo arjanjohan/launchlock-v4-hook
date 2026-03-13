@@ -105,6 +105,7 @@ export const Header = () => {
         </details>
         <Link href="/" passHref className="hidden lg:flex items-center gap-2 ml-4 mr-6 shrink-0">
           <div className="flex relative w-10 h-10">
+<<<<<<< HEAD
             <Image
               alt="LaunchLock logo"
               className="cursor-pointer object-contain"
@@ -116,6 +117,13 @@ export const Header = () => {
           <div className="flex flex-col">
             <span className="font-bold leading-tight">LaunchLock</span>
             <span className="text-xs">Uniswap v4 lock manager</span>
+=======
+            <Image alt="LaunchLock logo" className="cursor-pointer" fill src="/logo.png" />
+          </div>
+          <div className="flex flex-col">
+            <span className="font-bold leading-tight">LaunchLock</span>
+            <span className="text-xs">Uniswap V4 Hook</span>
+>>>>>>> f02ec3d (chore(branding): update app name and logos)
           </div>
         </Link>
         <ul className="hidden lg:flex lg:flex-nowrap menu menu-horizontal px-1 gap-2">

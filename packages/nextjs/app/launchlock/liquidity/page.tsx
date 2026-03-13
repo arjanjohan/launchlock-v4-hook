@@ -648,8 +648,6 @@ const LiquidityPage = () => {
           </div>
         </>
       )}
-
-      <div className="text-xs opacity-70">If tx fails, use the demo mint and permit buttons first for pool tokens.</div>
     </div>
   );
 };
