@@ -356,7 +356,7 @@ const deployedContracts = {
       deployedOnBlock: 46569101,
     },
     LaunchLockHook: {
-      address: "0x8595d8d56ed94586c2050679d6b4499a75cdc200",
+      address: "0x0b14cf682d7dc7ebdb5461af0c31d5199ae24a00",
       abi: [
         {
           type: "constructor",
@@ -1664,7 +1664,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deployedOnBlock: 46563894,
+      deployedOnBlock: 46575788,
     },
   },
 } as const;

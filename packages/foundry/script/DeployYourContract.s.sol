@@ -16,8 +16,8 @@ contract DeployYourContract is ScaffoldETHDeploy {
     function run() external ScaffoldEthDeployerRunner {
         IPoolManager poolManager = IPoolManager(AddressConstants.getPoolManagerAddress(block.chainid));
 
-        // Only beforeRemoveLiquidity is enabled in LaunchLockHook permissions.
-        uint160 flags = uint160(Hooks.BEFORE_REMOVE_LIQUIDITY_FLAG);
+        // beforeAddLiquidity + beforeRemoveLiquidity are enabled in LaunchLockHook permissions.
+        uint160 flags = uint160(Hooks.BEFORE_ADD_LIQUIDITY_FLAG | Hooks.BEFORE_REMOVE_LIQUIDITY_FLAG);
 
         bytes memory constructorArgs = abi.encode(poolManager);
         (address expectedHookAddress, bytes32 salt) =

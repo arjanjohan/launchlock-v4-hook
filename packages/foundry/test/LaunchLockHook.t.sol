@@ -36,12 +36,36 @@ contract LaunchLockHookTest is BaseTest {
     int24 tickLower;
     int24 tickUpper;
 
+    function _mintDefaultPosition() internal returns (uint256) {
+        uint128 liquidityAmount = 100e18;
+
+        (uint256 amount0Expected, uint256 amount1Expected) = LiquidityAmounts.getAmountsForLiquidity(
+            Constants.SQRT_PRICE_1_1,
+            TickMath.getSqrtPriceAtTick(tickLower),
+            TickMath.getSqrtPriceAtTick(tickUpper),
+            liquidityAmount
+        );
+
+        (uint256 mintedTokenId,) = positionManager.mint(
+            poolKey,
+            tickLower,
+            tickUpper,
+            liquidityAmount,
+            amount0Expected + 1,
+            amount1Expected + 1,
+            address(this),
+            block.timestamp,
+            Constants.ZERO_BYTES
+        );
+        return mintedTokenId;
+    }
+
     function setUp() public {
         deployArtifactsAndLabel();
 
         (currency0, currency1) = deployCurrencyPair();
 
-        address flags = address(uint160(Hooks.BEFORE_REMOVE_LIQUIDITY_FLAG) ^ (0x4444 << 144));
+        address flags = address(uint160(Hooks.BEFORE_ADD_LIQUIDITY_FLAG | Hooks.BEFORE_REMOVE_LIQUIDITY_FLAG) ^ (0x4444 << 144));
         bytes memory constructorArgs = abi.encode(poolManager);
         deployCodeTo("LaunchLockHook.sol:LaunchLockHook", constructorArgs, flags);
         hook = LaunchLockHook(flags);
@@ -56,27 +80,6 @@ contract LaunchLockHookTest is BaseTest {
 
         tickLower = TickMath.minUsableTick(poolKey.tickSpacing);
         tickUpper = TickMath.maxUsableTick(poolKey.tickSpacing);
-
-        uint128 liquidityAmount = 100e18;
-
-        (uint256 amount0Expected, uint256 amount1Expected) = LiquidityAmounts.getAmountsForLiquidity(
-            Constants.SQRT_PRICE_1_1,
-            TickMath.getSqrtPriceAtTick(tickLower),
-            TickMath.getSqrtPriceAtTick(tickUpper),
-            liquidityAmount
-        );
-
-        (tokenId,) = positionManager.mint(
-            poolKey,
-            tickLower,
-            tickUpper,
-            liquidityAmount,
-            amount0Expected + 1,
-            amount1Expected + 1,
-            address(this),
-            block.timestamp,
-            Constants.ZERO_BYTES
-        );
     }
 
     function test_InitializeLaunchLock() public {
@@ -124,6 +127,7 @@ contract LaunchLockHookTest is BaseTest {
 
     function test_RemoveLiquidityAfterLockEnd() public {
         hook.initializeLaunchLock(poolKey, address(this), uint64(block.timestamp + 1 days));
+        tokenId = _mintDefaultPosition();
 
         vm.warp(block.timestamp + 1 days);
 
@@ -138,16 +142,13 @@ contract LaunchLockHookTest is BaseTest {
         );
     }
 
-    function test_RemoveLiquidityWithoutLockConfig() public {
-        positionManager.decreaseLiquidity(
-            tokenId,
-            1e18,
-            0,
-            0,
-            address(this),
-            block.timestamp,
-            Constants.ZERO_BYTES
-        );
+    function test_RevertIf_AddLiquidityWithoutLockConfig() public {
+        ModifyLiquidityParams memory params =
+            ModifyLiquidityParams({tickLower: tickLower, tickUpper: tickUpper, liquidityDelta: int256(1e18), salt: bytes32(0)});
+
+        vm.prank(address(poolManager));
+        vm.expectRevert(LaunchLockHook.LaunchLockHook__PoolNotInitialized.selector);
+        hook.beforeAddLiquidity(address(this), poolKey, params, Constants.ZERO_BYTES);
     }
 
     function test_RevertIf_InvalidPoolOwner() public {
@@ -236,18 +237,15 @@ contract LaunchLockHookTest is BaseTest {
         hook.assignPositionToGroup(poolKey, pKey, keccak256("unknown"));
     }
 
-    function test_LiquidityAddedBeforeLockInit_IsLockedAfterInit() public {
-        // Position was minted in setUp before any launch lock exists.
-        // Once lock is initialized for the pool, that existing position should become locked.
+    function test_AddLiquidityAllowedAfterLockInit() public {
         uint64 lockEnd = uint64(block.timestamp + 1 days);
         hook.initializeLaunchLock(poolKey, address(this), lockEnd);
 
         ModifyLiquidityParams memory params =
-            ModifyLiquidityParams({tickLower: tickLower, tickUpper: tickUpper, liquidityDelta: -int256(1e18), salt: bytes32(0)});
+            ModifyLiquidityParams({tickLower: tickLower, tickUpper: tickUpper, liquidityDelta: int256(1e18), salt: bytes32(0)});
 
         vm.prank(address(poolManager));
-        vm.expectRevert(abi.encodeWithSelector(LaunchLockHook.LaunchLockHook__LiquidityLocked.selector, uint256(lockEnd)));
-        hook.beforeRemoveLiquidity(address(this), poolKey, params, Constants.ZERO_BYTES);
+        hook.beforeAddLiquidity(address(this), poolKey, params, Constants.ZERO_BYTES);
     }
 
     function test_RevertIf_ReinitializeAfterLockExpired() public {

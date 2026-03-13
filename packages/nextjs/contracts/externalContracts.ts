@@ -148,7 +148,7 @@ const externalContracts = {
       abi: placeholderAbi,
     },
     LaunchLockHookExternal: {
-      address: "0x8595D8d56ED94586C2050679d6b4499A75cDC200",
+      address: "0x0B14cF682D7dC7eBdB5461af0c31d5199aE24A00",
       abi: launchLockHookAbi,
     },
     DemoUNI: {

@@ -46,7 +46,7 @@ contract LaunchLockHook is BaseHook {
         return Hooks.Permissions({
             beforeInitialize: false,
             afterInitialize: false,
-            beforeAddLiquidity: false,
+            beforeAddLiquidity: true,
             afterAddLiquidity: false,
             beforeRemoveLiquidity: true,
             afterRemoveLiquidity: false,
@@ -102,6 +102,17 @@ contract LaunchLockHook is BaseHook {
 
     function positionKey(int24 tickLower, int24 tickUpper, bytes32 salt) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(tickLower, tickUpper, salt));
+    }
+
+    function _beforeAddLiquidity(address, PoolKey calldata key, ModifyLiquidityParams calldata, bytes calldata)
+        internal
+        view
+        override
+        returns (bytes4)
+    {
+        PoolId poolId = key.toId();
+        if (!launchConfigs[poolId].initialized) revert LaunchLockHook__PoolNotInitialized();
+        return BaseHook.beforeAddLiquidity.selector;
     }
 
     function _beforeRemoveLiquidity(address, PoolKey calldata key, ModifyLiquidityParams calldata params, bytes calldata)
