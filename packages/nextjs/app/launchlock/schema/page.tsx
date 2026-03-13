@@ -1,55 +1,42 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AddressInput } from "@scaffold-ui/components";
-import { encodeAbiParameters, keccak256 } from "viem";
+import { useAccount } from "wagmi";
 import { useScaffoldEventHistory, useScaffoldReadContract } from "~~/hooks/scaffold-eth";
 
-const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000";
 const ZERO_BYTES32 = `0x${"0".repeat(64)}`;
 
 const SchemaPage = () => {
-  const [currency0, setCurrency0] = useState(EMPTY_ADDRESS);
-  const [currency1, setCurrency1] = useState(EMPTY_ADDRESS);
-  const [hooks, setHooks] = useState(EMPTY_ADDRESS);
-  const [fee, setFee] = useState("3000");
-  const [tickSpacing, setTickSpacing] = useState("60");
+  const { address } = useAccount();
+
+  const [selectedPoolId, setSelectedPoolId] = useState<`0x${string}`>(ZERO_BYTES32 as `0x${string}`);
   const [groupIdsRaw, setGroupIdsRaw] = useState(ZERO_BYTES32);
 
-  const keyArgs = useMemo(
-    () => ({
-      currency0: currency0 as `0x${string}`,
-      currency1: currency1 as `0x${string}`,
-      fee: Number(fee),
-      tickSpacing: Number(tickSpacing),
-      hooks: hooks as `0x${string}`,
-    }),
-    [currency0, currency1, fee, tickSpacing, hooks],
-  );
+  const { data: poolCreatedEvents } = useScaffoldEventHistory({
+    contractName: "LaunchLockHook",
+    eventName: "LaunchLockInitialized",
+    fromBlock: 0n,
+    watch: true,
+  });
 
-  const poolId = useMemo(() => {
-    try {
-      return keccak256(
-        encodeAbiParameters(
-          [
-            {
-              type: "tuple",
-              components: [
-                { name: "currency0", type: "address" },
-                { name: "currency1", type: "address" },
-                { name: "fee", type: "uint24" },
-                { name: "tickSpacing", type: "int24" },
-                { name: "hooks", type: "address" },
-              ],
-            },
-          ],
-          [keyArgs],
-        ),
-      );
-    } catch {
-      return ZERO_BYTES32;
+  const poolOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const rows: { poolId: `0x${string}`; poolOwner: string; lockEndTime: number }[] = [];
+
+    for (const ev of poolCreatedEvents || []) {
+      const poolId = ev.args?.poolId as `0x${string}` | undefined;
+      const poolOwner = (ev.args?.poolOwner as string | undefined) || "";
+      const lockEndTime = Number(ev.args?.lockEndTime || 0);
+      if (!poolId) continue;
+      if (seen.has(poolId.toLowerCase())) continue;
+      seen.add(poolId.toLowerCase());
+      rows.push({ poolId, poolOwner, lockEndTime });
     }
-  }, [keyArgs]);
+
+    return rows;
+  }, [poolCreatedEvents]);
+
+  const poolId = selectedPoolId;
 
   const groupIds = useMemo(
     () =>
@@ -63,7 +50,8 @@ const SchemaPage = () => {
   const { data: launchCfg } = useScaffoldReadContract({
     contractName: "LaunchLockHook",
     functionName: "launchConfigs",
-    args: [poolId as `0x${string}`],
+    args: [poolId],
+    query: { enabled: poolId !== ZERO_BYTES32 },
   });
 
   const { data: groupConfiguredEvents } = useScaffoldEventHistory({
@@ -71,7 +59,7 @@ const SchemaPage = () => {
     eventName: "GroupConfigured",
     fromBlock: 0n,
     watch: true,
-    enabled: !!poolId,
+    enabled: poolId !== ZERO_BYTES32,
   });
 
   const { data: positionAssignedEvents } = useScaffoldEventHistory({
@@ -79,7 +67,7 @@ const SchemaPage = () => {
     eventName: "PositionGroupAssigned",
     fromBlock: 0n,
     watch: true,
-    enabled: !!poolId,
+    enabled: poolId !== ZERO_BYTES32,
   });
 
   const eventGroups = useMemo(() => {
@@ -99,6 +87,7 @@ const SchemaPage = () => {
     return {
       groupEvents: filteredGroups,
       assignmentByGroup,
+      totalAssigned: filteredAssignments.length,
     };
   }, [groupConfiguredEvents, positionAssignedEvents, poolId]);
 
@@ -111,34 +100,39 @@ const SchemaPage = () => {
     <div className="p-8 space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Pool Unlock Schema</h1>
-        <p className="opacity-70">Visual overview of pool lock, group locks, and assigned positions.</p>
+        <p className="opacity-70">Select a created pool and inspect lock/group structure.</p>
       </div>
 
       <div className="card bg-base-100 shadow-xl">
-        <div className="card-body space-y-2">
-          <h2 className="card-title">PoolKey Input</h2>
-          <AddressInput value={currency0} onChange={setCurrency0} placeholder="currency0" />
-          <AddressInput value={currency1} onChange={setCurrency1} placeholder="currency1" />
-          <AddressInput value={hooks} onChange={setHooks} placeholder="hooks" />
-          <input
-            className="input input-bordered"
-            value={fee}
-            onChange={e => setFee(e.target.value)}
-            placeholder="fee"
-          />
-          <input
-            className="input input-bordered"
-            value={tickSpacing}
-            onChange={e => setTickSpacing(e.target.value)}
-            placeholder="tickSpacing"
-          />
-          <textarea
-            className="textarea textarea-bordered"
-            value={groupIdsRaw}
-            onChange={e => setGroupIdsRaw(e.target.value)}
-            placeholder="group ids csv (0x...,0x...)"
-          />
-          <div className="text-xs bg-base-200 p-3 rounded break-all">poolId: {poolId}</div>
+        <div className="card-body space-y-3">
+          <h2 className="card-title">Select Pool</h2>
+          <select
+            className="select select-bordered w-full"
+            value={selectedPoolId}
+            onChange={e => setSelectedPoolId(e.target.value as `0x${string}`)}
+          >
+            <option value={ZERO_BYTES32}>Choose a pool…</option>
+            {poolOptions.map(pool => (
+              <option key={pool.poolId} value={pool.poolId}>
+                {pool.poolId.slice(0, 10)}...{pool.poolId.slice(-8)} | owner {pool.poolOwner.slice(0, 8)}...
+              </option>
+            ))}
+          </select>
+
+          <div className="text-xs bg-base-200 p-3 rounded break-all">Selected poolId: {poolId}</div>
+
+          <div className="collapse collapse-arrow bg-base-200">
+            <input type="checkbox" />
+            <div className="collapse-title text-sm font-medium">Advanced: manual group IDs</div>
+            <div className="collapse-content">
+              <textarea
+                className="textarea textarea-bordered w-full"
+                value={groupIdsRaw}
+                onChange={e => setGroupIdsRaw(e.target.value)}
+                placeholder="group ids csv (0x...,0x...)"
+              />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -152,12 +146,16 @@ const SchemaPage = () => {
             </div>
             <div className="stat">
               <div className="stat-title">Pool Owner</div>
-              <div className="stat-value text-sm break-all">{(launchCfg as any)?.[1] || "-"}</div>
+              <div className="stat-value text-sm break-all">{(launchCfg as any)?.[1] || address || "-"}</div>
             </div>
             <div className="stat">
               <div className="stat-title">Pool Lock Remaining</div>
               <div className="stat-value text-lg">{lockDays}d</div>
               <div className="stat-desc">{remainingSeconds}s remaining</div>
+            </div>
+            <div className="stat">
+              <div className="stat-title">Assigned Positions</div>
+              <div className="stat-value text-lg">{eventGroups.totalAssigned}</div>
             </div>
           </div>
         </div>
@@ -166,10 +164,6 @@ const SchemaPage = () => {
       <div className="card bg-base-100 shadow-xl">
         <div className="card-body">
           <h2 className="card-title">Group Visualization</h2>
-          <p className="text-sm opacity-70">
-            Token amount locked is not directly tracked by the hook state. This page visualizes lock timings and
-            assigned positions.
-          </p>
           <div className="overflow-x-auto">
             <table className="table">
               <thead>

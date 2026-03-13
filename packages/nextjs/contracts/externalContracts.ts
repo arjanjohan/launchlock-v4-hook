@@ -91,6 +91,16 @@ const launchLockHookAbi = [
       { name: "groupId", type: "bytes32", indexed: true },
     ],
   },
+  {
+    type: "event",
+    name: "LaunchLockInitialized",
+    anonymous: false,
+    inputs: [
+      { name: "poolId", type: "bytes32", indexed: true },
+      { name: "poolOwner", type: "address", indexed: true },
+      { name: "lockEndTime", type: "uint64", indexed: false },
+    ],
+  },
 ] as const;
 
 const placeholderAbi = [
