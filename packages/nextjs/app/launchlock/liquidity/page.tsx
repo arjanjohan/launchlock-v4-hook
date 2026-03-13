@@ -12,6 +12,7 @@ import {
 import { getParsedError, notification } from "~~/utils/scaffold-eth";
 
 const MAX_UINT160 = 2n ** 160n - 1n;
+const MAX_UINT256 = 2n ** 256n - 1n;
 const HOOK_DEPLOY_BLOCK = 46575788n;
 
 const tokenOptions = [
@@ -42,11 +43,11 @@ const LiquidityPage = () => {
   const publicClient = usePublicClient();
   const { data: hook } = useDeployedContractInfo({ contractName: "LaunchLockHook" });
   const { data: posm } = useDeployedContractInfo({ contractName: "PositionManager" });
+  const { data: permit2 } = useDeployedContractInfo({ contractName: "Permit2" });
 
   const [selectedPoolId, setSelectedPoolId] = useState<`0x${string}` | "">("");
   const [tokenId, setTokenId] = useState("");
 
-  const [liquidityAmountRaw, setLiquidityAmountRaw] = useState("1000000000000000000");
   const [amount0Human, setAmount0Human] = useState("1");
   const [amount1Human, setAmount1Human] = useState("1");
 
@@ -107,6 +108,12 @@ const LiquidityPage = () => {
       return 0n;
     }
   }, [amount1Human, dec1]);
+
+  const liquidityAmountRaw = useMemo(() => {
+    // Simple demo heuristic: use the smaller side as liquidity cap.
+    // Keeps UX simple and avoids manual liquidity-unit entry.
+    return amount0MaxRaw < amount1MaxRaw ? amount0MaxRaw : amount1MaxRaw;
+  }, [amount0MaxRaw, amount1MaxRaw]);
 
   const { data: currentLiquidity } = useScaffoldReadContract({
     contractName: "PositionManager",
@@ -244,12 +251,32 @@ const LiquidityPage = () => {
     notification.success(`Minted ${symbol}`);
   };
 
-  const approveToken = async (tokenAddress: `0x${string}`) => {
+  const approveTokenViaPermit2 = async (tokenAddress: `0x${string}`) => {
     await writePermit2({
       functionName: "approve",
       args: [tokenAddress, posm?.address as `0x${string}`, MAX_UINT160, 281474976710655],
     });
-    notification.success("Permit2 approval set");
+  };
+
+  const approveErc20ToPermit2 = async (symbol: string) => {
+    const fn = symbol === "UNI" ? writeDemoUNI : symbol === "USDC" ? writeDemoUSDC : writeDemoPEPE;
+    await fn({ functionName: "approve", args: [permit2?.address as `0x${string}`, MAX_UINT256] });
+  };
+
+  const preparePoolTokens = async () => {
+    if (!selectedPool) return;
+    const s0 = tokenMeta0?.symbol;
+    const s1 = tokenMeta1?.symbol;
+    if (!s0 || !s1) {
+      notification.error("Selected pool tokens are not mapped to demo tokens");
+      return;
+    }
+
+    await approveErc20ToPermit2(s0);
+    await approveErc20ToPermit2(s1);
+    await approveTokenViaPermit2(selectedPool.currency0);
+    await approveTokenViaPermit2(selectedPool.currency1);
+    notification.success("Approvals ready: ERC20 -> Permit2 -> PositionManager");
   };
 
   const addFullRange = async () => {
@@ -283,16 +310,7 @@ const LiquidityPage = () => {
         { type: "address" },
         { type: "bytes" },
       ],
-      [
-        key,
-        tickLower,
-        tickUpper,
-        BigInt(liquidityAmountRaw || "0"),
-        amount0MaxRaw,
-        amount1MaxRaw,
-        address as `0x${string}`,
-        "0x",
-      ],
+      [key, tickLower, tickUpper, liquidityAmountRaw, amount0MaxRaw, amount1MaxRaw, address as `0x${string}`, "0x"],
     );
 
     const p1 = encodeAbiParameters(
@@ -380,11 +398,11 @@ const LiquidityPage = () => {
               )}
             </div>
             <div className="flex gap-2 flex-wrap">
-              <button className="btn btn-sm btn-outline" onClick={() => approveToken(selectedPool.currency0)}>
-                Permit2 approve {tokenMeta0?.symbol || "Token0"}
-              </button>
-              <button className="btn btn-sm btn-outline" onClick={() => approveToken(selectedPool.currency1)}>
-                Permit2 approve {tokenMeta1?.symbol || "Token1"}
+              <button
+                className="btn btn-sm btn-outline"
+                onClick={() => preparePoolTokens().catch(e => notification.error(getParsedError(e)))}
+              >
+                Prepare approvals ({tokenMeta0?.symbol || "Token0"}/{tokenMeta1?.symbol || "Token1"})
               </button>
             </div>
           </div>
@@ -419,12 +437,12 @@ const LiquidityPage = () => {
                 placeholder={`${tokenMeta1?.symbol || "Token1"} amount`}
               />
 
-              <input
-                className="input input-bordered"
-                value={liquidityAmountRaw}
-                onChange={e => setLiquidityAmountRaw(e.target.value)}
-                placeholder="Liquidity units (advanced)"
-              />
+              <details className="collapse collapse-arrow bg-base-200">
+                <summary className="collapse-title text-sm">Advanced liquidity units</summary>
+                <div className="collapse-content text-xs opacity-70">
+                  Auto-generated liquidity units: {liquidityAmountRaw.toString()}
+                </div>
+              </details>
 
               <button
                 className="btn btn-primary"
