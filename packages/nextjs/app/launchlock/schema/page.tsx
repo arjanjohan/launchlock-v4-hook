@@ -11,6 +11,8 @@ const SchemaPage = () => {
   const { address } = useAccount();
 
   const [selectedPoolId, setSelectedPoolId] = useState<`0x${string}`>(ZERO_BYTES32 as `0x${string}`);
+  const [isManualPoolInput, setIsManualPoolInput] = useState(false);
+  const [manualPoolId, setManualPoolId] = useState<`0x${string}`>(ZERO_BYTES32 as `0x${string}`);
   const [groupIdsRaw, setGroupIdsRaw] = useState(ZERO_BYTES32);
 
   const { data: poolCreatedEvents } = useScaffoldEventHistory({
@@ -37,7 +39,7 @@ const SchemaPage = () => {
     return rows;
   }, [poolCreatedEvents]);
 
-  const poolId = selectedPoolId;
+  const poolId = isManualPoolInput ? manualPoolId : selectedPoolId;
 
   const groupIds = useMemo(
     () =>
@@ -109,8 +111,15 @@ const SchemaPage = () => {
           <h2 className="card-title">Select Pool</h2>
           <select
             className="select select-bordered w-full"
-            value={selectedPoolId}
-            onChange={e => setSelectedPoolId(e.target.value as `0x${string}`)}
+            value={isManualPoolInput ? "manual" : selectedPoolId}
+            onChange={e => {
+              if (e.target.value === "manual") {
+                setIsManualPoolInput(true);
+                return;
+              }
+              setIsManualPoolInput(false);
+              setSelectedPoolId(e.target.value as `0x${string}`);
+            }}
           >
             <option value={ZERO_BYTES32}>Choose a pool…</option>
             {poolOptions.map(pool => (
@@ -118,14 +127,17 @@ const SchemaPage = () => {
                 {pool.poolId} | owner {pool.poolOwner.slice(0, 8)}...
               </option>
             ))}
+            <option value="manual">Manual input…</option>
           </select>
 
-          <input
-            className="input input-bordered w-full"
-            placeholder="Or paste poolId manually (0x...)"
-            value={selectedPoolId}
-            onChange={e => setSelectedPoolId(e.target.value as `0x${string}`)}
-          />
+          {isManualPoolInput && (
+            <input
+              className="input input-bordered w-full"
+              placeholder="Paste poolId manually (0x...)"
+              value={manualPoolId}
+              onChange={e => setManualPoolId(e.target.value as `0x${string}`)}
+            />
+          )}
 
           <div className="text-xs bg-base-200 p-3 rounded break-all">Selected poolId: {poolId}</div>
 
