@@ -52,15 +52,22 @@ const CreatePoolPage = () => {
     return BigInt(Math.floor(Math.sqrt(p) * Q96));
   }, [initialPrice]);
 
+  const [orderedCurrency0, orderedCurrency1, didReorder] = useMemo(() => {
+    const a = currency0.toLowerCase();
+    const b = currency1.toLowerCase();
+    if (a <= b) return [currency0, currency1, false] as const;
+    return [currency1, currency0, true] as const;
+  }, [currency0, currency1]);
+
   const keyArgs = useMemo(
     () => ({
-      currency0: currency0 as `0x${string}`,
-      currency1: currency1 as `0x${string}`,
+      currency0: orderedCurrency0 as `0x${string}`,
+      currency1: orderedCurrency1 as `0x${string}`,
       fee: selectedPreset.fee,
       tickSpacing: selectedPreset.tickSpacing,
       hooks: (hooksAddress || "0x0000000000000000000000000000000000000000") as `0x${string}`,
     }),
-    [currency0, currency1, selectedPreset, hooksAddress],
+    [orderedCurrency0, orderedCurrency1, selectedPreset, hooksAddress],
   );
 
   const computedPoolId = useMemo(() => {
@@ -129,6 +136,15 @@ const CreatePoolPage = () => {
               </option>
             ))}
           </select>
+
+          {currency0.toLowerCase() === currency1.toLowerCase() && (
+            <div className="alert alert-error text-sm">Currency 0 and Currency 1 cannot be the same token.</div>
+          )}
+          {didReorder && (
+            <div className="alert alert-info text-sm">
+              Token order auto-adjusted for v4 canonical ordering (required by PoolManager).
+            </div>
+          )}
 
           <label className="text-sm font-semibold">Fee Tier</label>
           <select
@@ -201,7 +217,12 @@ const CreatePoolPage = () => {
           <div className="flex gap-2 flex-wrap">
             <button
               className="btn btn-primary"
-              disabled={isCreatingPool || !hooksAddress || sqrtPriceX96 <= 0n}
+              disabled={
+                isCreatingPool ||
+                !hooksAddress ||
+                sqrtPriceX96 <= 0n ||
+                currency0.toLowerCase() === currency1.toLowerCase()
+              }
               onClick={async () => {
                 try {
                   await writePoolManager({ functionName: "initialize", args: [keyArgs, sqrtPriceX96] });
