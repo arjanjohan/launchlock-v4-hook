@@ -235,4 +235,29 @@ contract LaunchLockHookTest is BaseTest {
         vm.expectRevert(LaunchLockHook.LaunchLockHook__GroupNotFound.selector);
         hook.assignPositionToGroup(poolKey, pKey, keccak256("unknown"));
     }
+
+    function test_LiquidityAddedBeforeLockInit_IsLockedAfterInit() public {
+        // Position was minted in setUp before any launch lock exists.
+        // Once lock is initialized for the pool, that existing position should become locked.
+        uint64 lockEnd = uint64(block.timestamp + 1 days);
+        hook.initializeLaunchLock(poolKey, address(this), lockEnd);
+
+        ModifyLiquidityParams memory params =
+            ModifyLiquidityParams({tickLower: tickLower, tickUpper: tickUpper, liquidityDelta: -int256(1e18), salt: bytes32(0)});
+
+        vm.prank(address(poolManager));
+        vm.expectRevert(abi.encodeWithSelector(LaunchLockHook.LaunchLockHook__LiquidityLocked.selector, uint256(lockEnd)));
+        hook.beforeRemoveLiquidity(address(this), poolKey, params, Constants.ZERO_BYTES);
+    }
+
+    function test_RevertIf_ReinitializeAfterLockExpired() public {
+        uint64 lockEnd = uint64(block.timestamp + 1 days);
+        hook.initializeLaunchLock(poolKey, address(this), lockEnd);
+
+        vm.warp(lockEnd + 1);
+
+        // Current behavior: lock config is one-time per pool, even after expiry.
+        vm.expectRevert(LaunchLockHook.LaunchLockHook__AlreadyInitialized.selector);
+        hook.initializeLaunchLock(poolKey, address(this), uint64(block.timestamp + 1 days));
+    }
 }
