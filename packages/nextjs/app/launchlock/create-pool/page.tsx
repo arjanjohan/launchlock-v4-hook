@@ -43,6 +43,8 @@ const CreatePoolPage = () => {
   const selectedPreset = FEE_PRESETS[feePreset];
 
   const hooksAddress = deployedHook?.address;
+  const selectedToken0 = DEMO_TOKENS.find(t => t.address.toLowerCase() === currency0.toLowerCase());
+  const selectedToken1 = DEMO_TOKENS.find(t => t.address.toLowerCase() === currency1.toLowerCase());
 
   const sqrtPriceX96 = useMemo(() => {
     const p = Number(initialPrice);
@@ -148,7 +150,10 @@ const CreatePoolPage = () => {
             onChange={e => setInitialPrice(e.target.value)}
             placeholder="1 TOKEN0 = X TOKEN1"
           />
-          <div className="text-xs opacity-70">Interpreted as: 1 currency0 = {initialPrice || "?"} currency1</div>
+          <div className="text-xs opacity-70">
+            Interpreted as: 1 {selectedToken0?.symbol || "TOKEN0"} = {initialPrice || "?"}{" "}
+            {selectedToken1?.symbol || "TOKEN1"}
+          </div>
 
           <label className="text-sm font-semibold">Hook (auto)</label>
           <div className="input input-bordered flex items-center text-sm">
