@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useIsMounted } from "usehooks-ts";
 import { usePublicClient } from "wagmi";
 import { useSelectedNetwork } from "~~/hooks/scaffold-eth";
 import {
@@ -32,8 +31,6 @@ export function useDeployedContractInfo<TContractName extends ContractName>(
 export function useDeployedContractInfo<TContractName extends ContractName>(
   configOrName: UseDeployedContractConfig<TContractName> | TContractName,
 ): DeployedContractData<TContractName> {
-  const isMounted = useIsMounted();
-
   const finalConfig: UseDeployedContractConfig<TContractName> =
     typeof configOrName === "string" ? { contractName: configOrName } : (configOrName as any);
 
@@ -53,10 +50,10 @@ export function useDeployedContractInfo<TContractName extends ContractName>(
   useEffect(() => {
     const checkContractDeployment = async () => {
       try {
-        if (!isMounted() || !publicClient) return;
+        if (!publicClient) return;
 
         if (!deployedContract) {
-          setStatus(ContractCodeStatus.NOT_FOUND);
+          setStatus(prev => (prev === ContractCodeStatus.NOT_FOUND ? prev : ContractCodeStatus.NOT_FOUND));
           return;
         }
 
@@ -66,18 +63,18 @@ export function useDeployedContractInfo<TContractName extends ContractName>(
 
         // If contract code is `0x` => no contract deployed on that address
         if (code === "0x") {
-          setStatus(ContractCodeStatus.NOT_FOUND);
+          setStatus(prev => (prev === ContractCodeStatus.NOT_FOUND ? prev : ContractCodeStatus.NOT_FOUND));
           return;
         }
-        setStatus(ContractCodeStatus.DEPLOYED);
+        setStatus(prev => (prev === ContractCodeStatus.DEPLOYED ? prev : ContractCodeStatus.DEPLOYED));
       } catch (e) {
         console.error(e);
-        setStatus(ContractCodeStatus.NOT_FOUND);
+        setStatus(prev => (prev === ContractCodeStatus.NOT_FOUND ? prev : ContractCodeStatus.NOT_FOUND));
       }
     };
 
     checkContractDeployment();
-  }, [isMounted, contractName, deployedContract, publicClient]);
+  }, [contractName, deployedContract, publicClient]);
 
   return {
     data: status === ContractCodeStatus.DEPLOYED ? deployedContract : undefined,
