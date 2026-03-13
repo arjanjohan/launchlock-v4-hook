@@ -21,6 +21,21 @@ const poolManagerAbi = [
     ],
     outputs: [{ name: "tick", type: "int24" }],
   },
+  {
+    type: "event",
+    name: "Initialize",
+    anonymous: false,
+    inputs: [
+      { name: "id", type: "bytes32", indexed: true },
+      { name: "currency0", type: "address", indexed: true },
+      { name: "currency1", type: "address", indexed: true },
+      { name: "fee", type: "uint24", indexed: false },
+      { name: "tickSpacing", type: "int24", indexed: false },
+      { name: "hooks", type: "address", indexed: false },
+      { name: "sqrtPriceX96", type: "uint160", indexed: false },
+      { name: "tick", type: "int24", indexed: false },
+    ],
+  },
 ] as const;
 
 const launchLockHookAbi = [
@@ -107,6 +122,41 @@ const placeholderAbi = [
   { type: "function", name: "owner", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
 ] as const;
 
+const positionManagerAbi = [
+  {
+    type: "function",
+    name: "modifyLiquidities",
+    stateMutability: "payable",
+    inputs: [
+      { name: "unlockData", type: "bytes" },
+      { name: "deadline", type: "uint256" },
+    ],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "getPositionLiquidity",
+    stateMutability: "view",
+    inputs: [{ name: "tokenId", type: "uint256" }],
+    outputs: [{ name: "liquidity", type: "uint128" }],
+  },
+] as const;
+
+const permit2Abi = [
+  {
+    type: "function",
+    name: "approve",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "token", type: "address" },
+      { name: "spender", type: "address" },
+      { name: "amount", type: "uint160" },
+      { name: "expiration", type: "uint48" },
+    ],
+    outputs: [],
+  },
+] as const;
+
 const erc20DemoAbi = [
   {
     type: "function",
@@ -127,6 +177,16 @@ const erc20DemoAbi = [
     ],
     outputs: [],
   },
+  {
+    type: "function",
+    name: "approve",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "spender", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+  },
 ] as const;
 
 const externalContracts = {
@@ -137,11 +197,11 @@ const externalContracts = {
     },
     PositionManager: {
       address: "0xf969Aee60879C54bAAed9F3eD26147Db216Fd664",
-      abi: placeholderAbi,
+      abi: positionManagerAbi,
     },
     Permit2: {
       address: "0x000000000022D473030F116dDEE9F6B43aC78BA3",
-      abi: placeholderAbi,
+      abi: permit2Abi,
     },
     V4SwapRouter: {
       address: "0x9cD2b0a732dd5e023a5539921e0FD1c30E198Dba",

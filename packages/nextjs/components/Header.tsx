@@ -5,7 +5,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { hardhat } from "viem/chains";
-import { Bars3Icon, BugAntIcon, LockClosedIcon, PresentationChartLineIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowsRightLeftIcon,
+  Bars3Icon,
+  BugAntIcon,
+  LockClosedIcon,
+  PresentationChartLineIcon,
+} from "@heroicons/react/24/outline";
 import { FaucetButton, RainbowKitCustomConnectButton } from "~~/components/scaffold-eth";
 import { useOutsideClick, useTargetNetwork } from "~~/hooks/scaffold-eth";
 
@@ -29,6 +35,11 @@ export const menuLinks: HeaderMenuLink[] = [
     label: "Unlock Schema",
     href: "/launchlock/schema",
     icon: <PresentationChartLineIcon className="h-4 w-4" />,
+  },
+  {
+    label: "Liquidity",
+    href: "/launchlock/liquidity",
+    icon: <ArrowsRightLeftIcon className="h-4 w-4" />,
   },
   {
     label: "Debug Contracts",

@@ -31,7 +31,7 @@ const unichainSepolia = defineChain({
 
 const scaffoldConfig = {
   // The networks on which your DApp is live
-  targetNetworks: [chains.foundry, unichainSepolia],
+  targetNetworks: [unichainSepolia],
   // The interval at which your front-end polls the RPC servers for new data
   pollingInterval: 3000,
   alchemyApiKey: process.env.NEXT_PUBLIC_ALCHEMY_API_KEY || DEFAULT_ALCHEMY_API_KEY,
