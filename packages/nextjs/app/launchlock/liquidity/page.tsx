@@ -29,7 +29,35 @@ const erc20Abi = [
     inputs: [{ name: "account", type: "address" }],
     outputs: [{ type: "uint256" }],
   },
+  {
+    type: "function",
+    name: "allowance",
+    stateMutability: "view",
+    inputs: [
+      { name: "owner", type: "address" },
+      { name: "spender", type: "address" },
+    ],
+    outputs: [{ type: "uint256" }],
+  },
   { type: "function", name: "decimals", stateMutability: "view", inputs: [], outputs: [{ type: "uint8" }] },
+] as const;
+
+const permit2ViewAbi = [
+  {
+    type: "function",
+    name: "allowance",
+    stateMutability: "view",
+    inputs: [
+      { name: "user", type: "address" },
+      { name: "token", type: "address" },
+      { name: "spender", type: "address" },
+    ],
+    outputs: [
+      { name: "amount", type: "uint160" },
+      { name: "expiration", type: "uint48" },
+      { name: "nonce", type: "uint48" },
+    ],
+  },
 ] as const;
 
 const fullRangeTicks = (tickSpacing: number) => {
@@ -55,6 +83,8 @@ const LiquidityPage = () => {
   const [dec1, setDec1] = useState(18);
   const [bal0, setBal0] = useState<bigint>(0n);
   const [bal1, setBal1] = useState<bigint>(0n);
+  const [token0Ready, setToken0Ready] = useState(false);
+  const [token1Ready, setToken1Ready] = useState(false);
 
   const { writeContractAsync: writePosm, isMining: isPosmPending } = useScaffoldWriteContract({
     contractName: "PositionManager",
@@ -202,12 +232,14 @@ const LiquidityPage = () => {
           setDec1(18);
           setBal0(0n);
           setBal1(0n);
+          setToken0Ready(false);
+          setToken1Ready(false);
         }
         return;
       }
 
       try {
-        const [d0, d1, b0, b1] = await Promise.all([
+        const [d0, d1, b0, b1, a0, a1, p0, p1] = await Promise.all([
           publicClient.readContract({ address: selectedPool.currency0, abi: erc20Abi, functionName: "decimals" }),
           publicClient.readContract({ address: selectedPool.currency1, abi: erc20Abi, functionName: "decimals" }),
           publicClient.readContract({
@@ -222,6 +254,30 @@ const LiquidityPage = () => {
             functionName: "balanceOf",
             args: [address as `0x${string}`],
           }),
+          publicClient.readContract({
+            address: selectedPool.currency0,
+            abi: erc20Abi,
+            functionName: "allowance",
+            args: [address as `0x${string}`, permit2?.address as `0x${string}`],
+          }),
+          publicClient.readContract({
+            address: selectedPool.currency1,
+            abi: erc20Abi,
+            functionName: "allowance",
+            args: [address as `0x${string}`, permit2?.address as `0x${string}`],
+          }),
+          publicClient.readContract({
+            address: permit2?.address as `0x${string}`,
+            abi: permit2ViewAbi,
+            functionName: "allowance",
+            args: [address as `0x${string}`, selectedPool.currency0, posm?.address as `0x${string}`],
+          }),
+          publicClient.readContract({
+            address: permit2?.address as `0x${string}`,
+            abi: permit2ViewAbi,
+            functionName: "allowance",
+            args: [address as `0x${string}`, selectedPool.currency1, posm?.address as `0x${string}`],
+          }),
         ]);
 
         if (!cancelled) {
@@ -229,11 +285,17 @@ const LiquidityPage = () => {
           setDec1(Number(d1));
           setBal0(b0 as bigint);
           setBal1(b1 as bigint);
+          const token0ReadyNow = (a0 as bigint) > 0n && ((p0 as readonly [bigint, number, number])?.[0] || 0n) > 0n;
+          const token1ReadyNow = (a1 as bigint) > 0n && ((p1 as readonly [bigint, number, number])?.[0] || 0n) > 0n;
+          setToken0Ready(token0ReadyNow);
+          setToken1Ready(token1ReadyNow);
         }
       } catch {
         if (!cancelled) {
           setDec0(18);
           setDec1(18);
+          setToken0Ready(false);
+          setToken1Ready(false);
         }
       }
     };
@@ -242,7 +304,7 @@ const LiquidityPage = () => {
     return () => {
       cancelled = true;
     };
-  }, [publicClient, address, selectedPoolKey, selectedPool]);
+  }, [publicClient, address, selectedPoolKey, selectedPool, permit2?.address, posm?.address]);
 
   const mintToken = async (symbol: string) => {
     const amount = 100000n * 10n ** 18n;
@@ -263,20 +325,36 @@ const LiquidityPage = () => {
     await fn({ functionName: "approve", args: [permit2?.address as `0x${string}`, MAX_UINT256] });
   };
 
-  const preparePoolTokens = async () => {
-    if (!selectedPool) return;
-    const s0 = tokenMeta0?.symbol;
-    const s1 = tokenMeta1?.symbol;
-    if (!s0 || !s1) {
-      notification.error("Selected pool tokens are not mapped to demo tokens");
+  const prepareSingleToken = async (tokenAddress: `0x${string}`, symbol: string, ready: boolean) => {
+    if (ready) return;
+    if (!publicClient || !address || !permit2?.address || !posm?.address) {
+      notification.error("Missing wallet/network contracts");
       return;
     }
 
-    await approveErc20ToPermit2(s0);
-    await approveErc20ToPermit2(s1);
-    await approveTokenViaPermit2(selectedPool.currency0);
-    await approveTokenViaPermit2(selectedPool.currency1);
-    notification.success("Approvals ready: ERC20 -> Permit2 -> PositionManager");
+    const erc20Allowance = (await publicClient.readContract({
+      address: tokenAddress,
+      abi: erc20Abi,
+      functionName: "allowance",
+      args: [address as `0x${string}`, permit2.address as `0x${string}`],
+    })) as bigint;
+
+    if (erc20Allowance === 0n) {
+      await approveErc20ToPermit2(symbol);
+    }
+
+    const permitAllowance = (await publicClient.readContract({
+      address: permit2.address as `0x${string}`,
+      abi: permit2ViewAbi,
+      functionName: "allowance",
+      args: [address as `0x${string}`, tokenAddress, posm.address as `0x${string}`],
+    })) as readonly [bigint, number, number];
+
+    if ((permitAllowance?.[0] || 0n) === 0n) {
+      await approveTokenViaPermit2(tokenAddress);
+    }
+
+    notification.success(`${symbol} approvals are ready`);
   };
 
   const addFullRange = async () => {
@@ -398,12 +476,32 @@ const LiquidityPage = () => {
               )}
             </div>
             <div className="flex gap-2 flex-wrap">
-              <button
-                className="btn btn-sm btn-outline"
-                onClick={() => preparePoolTokens().catch(e => notification.error(getParsedError(e)))}
-              >
-                Prepare approvals ({tokenMeta0?.symbol || "Token0"}/{tokenMeta1?.symbol || "Token1"})
-              </button>
+              {tokenMeta0 && (
+                <button
+                  className="btn btn-sm btn-outline"
+                  disabled={token0Ready}
+                  onClick={() =>
+                    prepareSingleToken(selectedPool.currency0, tokenMeta0.symbol, token0Ready).catch(e =>
+                      notification.error(getParsedError(e)),
+                    )
+                  }
+                >
+                  {token0Ready ? `${tokenMeta0.symbol} approved` : `Approve ${tokenMeta0.symbol}`}
+                </button>
+              )}
+              {tokenMeta1 && (
+                <button
+                  className="btn btn-sm btn-outline"
+                  disabled={token1Ready}
+                  onClick={() =>
+                    prepareSingleToken(selectedPool.currency1, tokenMeta1.symbol, token1Ready).catch(e =>
+                      notification.error(getParsedError(e)),
+                    )
+                  }
+                >
+                  {token1Ready ? `${tokenMeta1.symbol} approved` : `Approve ${tokenMeta1.symbol}`}
+                </button>
+              )}
             </div>
           </div>
         </div>
