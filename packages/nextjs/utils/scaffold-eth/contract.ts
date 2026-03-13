@@ -23,6 +23,7 @@ import {
   Log,
   TransactionReceipt,
   WriteContractErrorType,
+  decodeErrorResult,
   keccak256,
   toHex,
 } from "viem";
@@ -341,6 +342,45 @@ export type AbiParameterTuple = Extract<AbiParameter, { type: "tuple" | `tuple[$
  * Enhanced error parsing that creates a lookup table from all deployed contracts
  * to decode error signatures from any contract in the system
  */
+const WRAPPED_ERROR_ABI = [
+  {
+    type: "error",
+    name: "WrappedError",
+    inputs: [
+      { name: "target", type: "address" },
+      { name: "selector", type: "bytes4" },
+      { name: "reason", type: "bytes" },
+      { name: "details", type: "bytes" },
+    ],
+  },
+] as const;
+
+const findHexData = (value: any): `0x${string}` | undefined => {
+  if (!value) return undefined;
+  if (typeof value === "string" && value.startsWith("0x")) return value as `0x${string}`;
+  if (typeof value !== "object") return undefined;
+
+  const directKeys = ["data", "error", "cause", "details", "shortMessage", "metaMessages"] as const;
+  for (const key of directKeys) {
+    const v = (value as any)[key];
+    const found = findHexData(v);
+    if (found) return found;
+  }
+
+  if (Array.isArray(value)) {
+    for (const v of value) {
+      const found = findHexData(v);
+      if (found) return found;
+    }
+  }
+
+  for (const v of Object.values(value)) {
+    const found = findHexData(v);
+    if (found) return found;
+  }
+  return undefined;
+};
+
 export const getParsedErrorWithAllAbis = (error: any, chainId: AllowedChainIds): string => {
   const originalParsedError = getParsedError(error);
 
@@ -396,7 +436,27 @@ export const getParsedErrorWithAllAbis = (error: any, chainId: AllowedChainIds):
 
       // Uniswap v4 wraps downstream hook errors with WrappedError
       if (signature.toLowerCase() === "0x90bfb865") {
-        return "Transaction reverted with a wrapped internal error (Uniswap v4 CustomRevert.WrappedError). In this flow, this commonly means liquidity removal is blocked by LaunchLock until unlock time.";
+        const wrappedData = findHexData(error);
+        if (wrappedData) {
+          try {
+            const decoded = decodeErrorResult({ abi: WRAPPED_ERROR_ABI, data: wrappedData });
+            if (decoded.errorName === "WrappedError") {
+              const [target, selector, reason] = decoded.args as [Address, `0x${string}`, `0x${string}`, `0x${string}`];
+              const innerSelector = reason?.slice(0, 10).toLowerCase();
+              const inner = innerSelector ? errorLookup[innerSelector] : undefined;
+
+              if (inner) {
+                return `Wrapped internal revert from ${target} (${selector}): ${inner.signature} (${inner.contract}).`;
+              }
+
+              return `Wrapped internal revert from ${target} (${selector}). Inner error selector: ${innerSelector || "unknown"}.`;
+            }
+          } catch {
+            // fall through to generic wrapped message
+          }
+        }
+
+        return "Transaction reverted with Uniswap v4 WrappedError. The underlying hook/manager error could not be decoded from payload.";
       }
 
       // If not found in simple lookup, provide a helpful message with context
