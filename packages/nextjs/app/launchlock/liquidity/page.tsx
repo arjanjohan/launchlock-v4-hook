@@ -135,15 +135,13 @@ const LiquidityPage = () => {
 
   const [filteredTokenIds, setFilteredTokenIds] = useState<string[]>([]);
   const myTokenIdsKey = myTokenIds.join(",");
-  const selectedPoolKey = selectedPool
-    ? `${selectedPool.currency0}-${selectedPool.currency1}-${selectedPool.fee}-${selectedPool.tickSpacing}`
-    : "";
 
   useEffect(() => {
     let cancelled = false;
 
     const run = async () => {
-      if (!publicClient || !posm?.address || !selectedPool) {
+      const pool = pools.find(p => p.id === selectedPoolId);
+      if (!publicClient || !posm?.address || !pool) {
         if (!cancelled) setFilteredTokenIds(myTokenIds);
         return;
       }
@@ -162,10 +160,10 @@ const LiquidityPage = () => {
           if (!key) continue;
 
           const samePool =
-            String(key.currency0).toLowerCase() === selectedPool.currency0.toLowerCase() &&
-            String(key.currency1).toLowerCase() === selectedPool.currency1.toLowerCase() &&
-            Number(key.fee) === selectedPool.fee &&
-            Number(key.tickSpacing) === selectedPool.tickSpacing &&
+            String(key.currency0).toLowerCase() === pool.currency0.toLowerCase() &&
+            String(key.currency1).toLowerCase() === pool.currency1.toLowerCase() &&
+            Number(key.fee) === pool.fee &&
+            Number(key.tickSpacing) === pool.tickSpacing &&
             String(key.hooks).toLowerCase() === (hook?.address || "").toLowerCase();
 
           if (samePool) next.push(id);
@@ -181,13 +179,14 @@ const LiquidityPage = () => {
     return () => {
       cancelled = true;
     };
-  }, [myTokenIdsKey, myTokenIds, publicClient, posm?.address, posm?.abi, selectedPool, selectedPoolKey, hook?.address]);
+  }, [myTokenIdsKey, myTokenIds, pools, publicClient, posm?.address, posm?.abi, selectedPoolId, hook?.address]);
 
   useEffect(() => {
     let cancelled = false;
 
     const read = async () => {
-      if (!publicClient || !address || !selectedPool) {
+      const pool = pools.find(p => p.id === selectedPoolId);
+      if (!publicClient || !address || !pool) {
         if (!cancelled) {
           setDec0(18);
           setDec1(18);
@@ -199,16 +198,16 @@ const LiquidityPage = () => {
 
       try {
         const [d0, d1, b0, b1] = await Promise.all([
-          publicClient.readContract({ address: selectedPool.currency0, abi: erc20Abi, functionName: "decimals" }),
-          publicClient.readContract({ address: selectedPool.currency1, abi: erc20Abi, functionName: "decimals" }),
+          publicClient.readContract({ address: pool.currency0, abi: erc20Abi, functionName: "decimals" }),
+          publicClient.readContract({ address: pool.currency1, abi: erc20Abi, functionName: "decimals" }),
           publicClient.readContract({
-            address: selectedPool.currency0,
+            address: pool.currency0,
             abi: erc20Abi,
             functionName: "balanceOf",
             args: [address as `0x${string}`],
           }),
           publicClient.readContract({
-            address: selectedPool.currency1,
+            address: pool.currency1,
             abi: erc20Abi,
             functionName: "balanceOf",
             args: [address as `0x${string}`],
@@ -233,7 +232,7 @@ const LiquidityPage = () => {
     return () => {
       cancelled = true;
     };
-  }, [publicClient, address, selectedPoolId, selectedPool]);
+  }, [publicClient, address, selectedPoolId, pools]);
 
   const mintToken = async (symbol: string) => {
     const amount = 100000n * 10n ** 18n;
@@ -361,108 +360,119 @@ const LiquidityPage = () => {
         </div>
       </div>
 
-      <div className="card bg-base-100 shadow-xl">
-        <div className="card-body space-y-2">
-          <h2 className="card-title">Prep (Demo)</h2>
-          <div className="flex gap-2 flex-wrap">
-            {tokenOptions.map(t => (
-              <button key={t.symbol} className="btn btn-sm" onClick={() => mintToken(t.symbol)}>
-                Mint {t.symbol}
+      {selectedPool && (
+        <div className="card bg-base-100 shadow-xl">
+          <div className="card-body space-y-2">
+            <h2 className="card-title">Prep (Demo)</h2>
+            <div className="flex gap-2 flex-wrap">
+              {tokenMeta0 && (
+                <button className="btn btn-sm" onClick={() => mintToken(tokenMeta0.symbol)}>
+                  Mint {tokenMeta0.symbol}
+                </button>
+              )}
+              {tokenMeta1 && (
+                <button className="btn btn-sm" onClick={() => mintToken(tokenMeta1.symbol)}>
+                  Mint {tokenMeta1.symbol}
+                </button>
+              )}
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <button className="btn btn-sm btn-outline" onClick={() => approveToken(selectedPool.currency0)}>
+                Permit2 approve {tokenMeta0?.symbol || "Token0"}
               </button>
-            ))}
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            {selectedPool && (
-              <>
-                <button className="btn btn-sm btn-outline" onClick={() => approveToken(selectedPool.currency0)}>
-                  Permit2 approve {tokenMeta0?.symbol || "Token0"}
-                </button>
-                <button className="btn btn-sm btn-outline" onClick={() => approveToken(selectedPool.currency1)}>
-                  Permit2 approve {tokenMeta1?.symbol || "Token1"}
-                </button>
-              </>
-            )}
+              <button className="btn btn-sm btn-outline" onClick={() => approveToken(selectedPool.currency1)}>
+                Permit2 approve {tokenMeta1?.symbol || "Token1"}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      <div className="card bg-base-100 shadow-xl">
-        <div className="card-body space-y-2">
-          <h2 className="card-title">Add Liquidity</h2>
-          <div className="text-sm opacity-80">
-            Pair: {tokenMeta0?.symbol || "Token0"} / {tokenMeta1?.symbol || "Token1"}
-          </div>
-          <div className="text-xs opacity-70">
-            Balance {tokenMeta0?.symbol || "Token0"}: {formatUnits(bal0, dec0)}
-          </div>
-          <input
-            className="input input-bordered"
-            value={amount0Human}
-            onChange={e => setAmount0Human(e.target.value)}
-            placeholder={`${tokenMeta0?.symbol || "Token0"} amount`}
-          />
-
-          <div className="text-xs opacity-70">
-            Balance {tokenMeta1?.symbol || "Token1"}: {formatUnits(bal1, dec1)}
-          </div>
-          <input
-            className="input input-bordered"
-            value={amount1Human}
-            onChange={e => setAmount1Human(e.target.value)}
-            placeholder={`${tokenMeta1?.symbol || "Token1"} amount`}
-          />
-
-          <input
-            className="input input-bordered"
-            value={liquidityAmountRaw}
-            onChange={e => setLiquidityAmountRaw(e.target.value)}
-            placeholder="Liquidity units (advanced)"
-          />
-
-          <button
-            className="btn btn-primary"
-            disabled={!selectedPool || isPosmPending}
-            onClick={() => addFullRange().catch(e => notification.error(getParsedError(e)))}
-          >
-            Add Full Range Liquidity
-          </button>
-        </div>
-      </div>
-
-      <div className="card bg-base-100 shadow-xl">
-        <div className="card-body space-y-2">
-          <h2 className="card-title">Remove Liquidity</h2>
-          <select className="select select-bordered w-full" value={tokenId} onChange={e => setTokenId(e.target.value)}>
-            <option value="">Choose your position tokenId…</option>
-            {filteredTokenIds.map(id => (
-              <option key={id} value={id}>
-                #{id}
-              </option>
-            ))}
-          </select>
-          <details className="collapse collapse-arrow bg-base-200">
-            <summary className="collapse-title text-sm">Manual tokenId input</summary>
-            <div className="collapse-content">
+      {selectedPool && (
+        <>
+          <div className="card bg-base-100 shadow-xl">
+            <div className="card-body space-y-2">
+              <h2 className="card-title">Add Liquidity</h2>
+              <div className="text-sm opacity-80">
+                Pair: {tokenMeta0?.symbol || "Token0"} / {tokenMeta1?.symbol || "Token1"}
+              </div>
+              <div className="text-xs opacity-70">
+                Balance {tokenMeta0?.symbol || "Token0"}: {formatUnits(bal0, dec0)}
+              </div>
               <input
-                className="input input-bordered w-full"
+                className="input input-bordered"
+                value={amount0Human}
+                onChange={e => setAmount0Human(e.target.value)}
+                placeholder={`${tokenMeta0?.symbol || "Token0"} amount`}
+              />
+
+              <div className="text-xs opacity-70">
+                Balance {tokenMeta1?.symbol || "Token1"}: {formatUnits(bal1, dec1)}
+              </div>
+              <input
+                className="input input-bordered"
+                value={amount1Human}
+                onChange={e => setAmount1Human(e.target.value)}
+                placeholder={`${tokenMeta1?.symbol || "Token1"} amount`}
+              />
+
+              <input
+                className="input input-bordered"
+                value={liquidityAmountRaw}
+                onChange={e => setLiquidityAmountRaw(e.target.value)}
+                placeholder="Liquidity units (advanced)"
+              />
+
+              <button
+                className="btn btn-primary"
+                disabled={!selectedPool || isPosmPending}
+                onClick={() => addFullRange().catch(e => notification.error(getParsedError(e)))}
+              >
+                Add Full Range Liquidity
+              </button>
+            </div>
+          </div>
+
+          <div className="card bg-base-100 shadow-xl">
+            <div className="card-body space-y-2">
+              <h2 className="card-title">Remove Liquidity</h2>
+              <select
+                className="select select-bordered w-full"
                 value={tokenId}
                 onChange={e => setTokenId(e.target.value)}
-                placeholder="Position tokenId"
-              />
+              >
+                <option value="">Choose your position tokenId…</option>
+                {filteredTokenIds.map(id => (
+                  <option key={id} value={id}>
+                    #{id}
+                  </option>
+                ))}
+              </select>
+              <details className="collapse collapse-arrow bg-base-200">
+                <summary className="collapse-title text-sm">Manual tokenId input</summary>
+                <div className="collapse-content">
+                  <input
+                    className="input input-bordered w-full"
+                    value={tokenId}
+                    onChange={e => setTokenId(e.target.value)}
+                    placeholder="Position tokenId"
+                  />
+                </div>
+              </details>
+              <div className="text-xs opacity-70">
+                Current liquidity: {currentLiquidity ? (currentLiquidity as bigint).toString() : "-"}
+              </div>
+              <button
+                className="btn btn-secondary"
+                disabled={!selectedPool || !tokenId || !currentLiquidity || isPosmPending}
+                onClick={() => removeFullRange().catch(e => notification.error(getParsedError(e)))}
+              >
+                Remove Full Liquidity
+              </button>
             </div>
-          </details>
-          <div className="text-xs opacity-70">
-            Current liquidity: {currentLiquidity ? (currentLiquidity as bigint).toString() : "-"}
           </div>
-          <button
-            className="btn btn-secondary"
-            disabled={!selectedPool || !tokenId || !currentLiquidity || isPosmPending}
-            onClick={() => removeFullRange().catch(e => notification.error(getParsedError(e)))}
-          >
-            Remove Full Liquidity
-          </button>
-        </div>
-      </div>
+        </>
+      )}
 
       <div className="text-xs opacity-70">If tx fails, use the demo mint and permit buttons first for pool tokens.</div>
     </div>

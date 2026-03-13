@@ -18,22 +18,22 @@
 @plugin "daisyui/theme" {
   name: "light";
 
-  --color-primary: #93bbfb;
-  --color-primary-content: #212638;
-  --color-secondary: #dae8ff;
-  --color-secondary-content: #212638;
-  --color-accent: #93bbfb;
-  --color-accent-content: #212638;
-  --color-neutral: #212638;
+  --color-primary: #ff4fa3;
+  --color-primary-content: #ffffff;
+  --color-secondary: #7c4dff;
+  --color-secondary-content: #ffffff;
+  --color-accent: #00c2ff;
+  --color-accent-content: #0b1020;
+  --color-neutral: #1c1433;
   --color-neutral-content: #ffffff;
   --color-base-100: #ffffff;
-  --color-base-200: #f4f8ff;
-  --color-base-300: #dae8ff;
-  --color-base-content: #212638;
-  --color-info: #93bbfb;
-  --color-success: #34eeb6;
-  --color-warning: #ffcf72;
-  --color-error: #ff8863;
+  --color-base-200: #f8f3ff;
+  --color-base-300: #eee4ff;
+  --color-base-content: #201635;
+  --color-info: #4a7dff;
+  --color-success: #19d3a2;
+  --color-warning: #ffb84d;
+  --color-error: #ff6b6b;
 
   --radius-field: 9999rem;
   --radius-box: 1rem;
@@ -43,22 +43,22 @@
 @plugin "daisyui/theme" {
   name: "dark";
 
-  --color-primary: #212638;
-  --color-primary-content: #f9fbff;
-  --color-secondary: #323f61;
-  --color-secondary-content: #f9fbff;
-  --color-accent: #4969a6;
-  --color-accent-content: #f9fbff;
-  --color-neutral: #f9fbff;
-  --color-neutral-content: #385183;
-  --color-base-100: #385183;
-  --color-base-200: #2a3655;
-  --color-base-300: #212638;
-  --color-base-content: #f9fbff;
-  --color-info: #385183;
-  --color-success: #34eeb6;
-  --color-warning: #ffcf72;
-  --color-error: #ff8863;
+  --color-primary: #ff4fa3;
+  --color-primary-content: #12081f;
+  --color-secondary: #9b7dff;
+  --color-secondary-content: #12081f;
+  --color-accent: #3bd5ff;
+  --color-accent-content: #08131f;
+  --color-neutral: #f4ecff;
+  --color-neutral-content: #271a40;
+  --color-base-100: #181028;
+  --color-base-200: #130d22;
+  --color-base-300: #0d0918;
+  --color-base-content: #f8f3ff;
+  --color-info: #7aa2ff;
+  --color-success: #30e0b1;
+  --color-warning: #ffc36b;
+  --color-error: #ff7f8c;
 
   --radius-field: 9999rem;
   --radius-box: 1rem;
