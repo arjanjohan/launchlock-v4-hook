@@ -83,7 +83,10 @@ const LiquidityPage = () => {
       }));
   }, [initializeEvents, hook?.address]);
 
-  const selectedPool = pools.find(p => p.id === selectedPoolId);
+  const selectedPool = useMemo(() => pools.find(p => p.id === selectedPoolId), [pools, selectedPoolId]);
+  const selectedPoolKey = selectedPool
+    ? `${selectedPool.currency0}-${selectedPool.currency1}-${selectedPool.fee}-${selectedPool.tickSpacing}`
+    : "";
   const { tickLower, tickUpper } = fullRangeTicks(selectedPool?.tickSpacing || 60);
 
   const tokenMeta0 = tokenOptions.find(t => t.address.toLowerCase() === selectedPool?.currency0?.toLowerCase());
@@ -140,9 +143,13 @@ const LiquidityPage = () => {
     let cancelled = false;
 
     const run = async () => {
-      const pool = pools.find(p => p.id === selectedPoolId);
-      if (!publicClient || !posm?.address || !pool) {
-        if (!cancelled) setFilteredTokenIds(myTokenIds);
+      if (!publicClient || !posm?.address || !selectedPool) {
+        if (!cancelled) {
+          setFilteredTokenIds(prev => {
+            const next = myTokenIds;
+            return prev.join(",") === next.join(",") ? prev : next;
+          });
+        }
         return;
       }
 
@@ -160,10 +167,10 @@ const LiquidityPage = () => {
           if (!key) continue;
 
           const samePool =
-            String(key.currency0).toLowerCase() === pool.currency0.toLowerCase() &&
-            String(key.currency1).toLowerCase() === pool.currency1.toLowerCase() &&
-            Number(key.fee) === pool.fee &&
-            Number(key.tickSpacing) === pool.tickSpacing &&
+            String(key.currency0).toLowerCase() === selectedPool.currency0.toLowerCase() &&
+            String(key.currency1).toLowerCase() === selectedPool.currency1.toLowerCase() &&
+            Number(key.fee) === selectedPool.fee &&
+            Number(key.tickSpacing) === selectedPool.tickSpacing &&
             String(key.hooks).toLowerCase() === (hook?.address || "").toLowerCase();
 
           if (samePool) next.push(id);
@@ -172,21 +179,22 @@ const LiquidityPage = () => {
         }
       }
 
-      if (!cancelled) setFilteredTokenIds(next);
+      if (!cancelled) {
+        setFilteredTokenIds(prev => (prev.join(",") === next.join(",") ? prev : next));
+      }
     };
 
     run();
     return () => {
       cancelled = true;
     };
-  }, [myTokenIdsKey, myTokenIds, pools, publicClient, posm?.address, posm?.abi, selectedPoolId, hook?.address]);
+  }, [myTokenIdsKey, myTokenIds, selectedPoolKey, selectedPool, publicClient, posm?.address, posm?.abi, hook?.address]);
 
   useEffect(() => {
     let cancelled = false;
 
     const read = async () => {
-      const pool = pools.find(p => p.id === selectedPoolId);
-      if (!publicClient || !address || !pool) {
+      if (!publicClient || !address || !selectedPool) {
         if (!cancelled) {
           setDec0(18);
           setDec1(18);
@@ -198,16 +206,16 @@ const LiquidityPage = () => {
 
       try {
         const [d0, d1, b0, b1] = await Promise.all([
-          publicClient.readContract({ address: pool.currency0, abi: erc20Abi, functionName: "decimals" }),
-          publicClient.readContract({ address: pool.currency1, abi: erc20Abi, functionName: "decimals" }),
+          publicClient.readContract({ address: selectedPool.currency0, abi: erc20Abi, functionName: "decimals" }),
+          publicClient.readContract({ address: selectedPool.currency1, abi: erc20Abi, functionName: "decimals" }),
           publicClient.readContract({
-            address: pool.currency0,
+            address: selectedPool.currency0,
             abi: erc20Abi,
             functionName: "balanceOf",
             args: [address as `0x${string}`],
           }),
           publicClient.readContract({
-            address: pool.currency1,
+            address: selectedPool.currency1,
             abi: erc20Abi,
             functionName: "balanceOf",
             args: [address as `0x${string}`],
@@ -232,7 +240,7 @@ const LiquidityPage = () => {
     return () => {
       cancelled = true;
     };
-  }, [publicClient, address, selectedPoolId, pools]);
+  }, [publicClient, address, selectedPoolKey, selectedPool]);
 
   const mintToken = async (symbol: string) => {
     const amount = 100000n * 10n ** 18n;
