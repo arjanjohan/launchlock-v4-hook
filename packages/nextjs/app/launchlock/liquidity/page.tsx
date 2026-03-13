@@ -378,7 +378,20 @@ const LiquidityPage = () => {
   };
 
   const addFullRange = async () => {
-    if (!selectedPool || !address) return;
+    if (!selectedPool || !address || !hook?.address || !publicClient) return;
+
+    // Pre-check lock init to avoid opaque wrapped reverts from v4
+    const launchCfg = (await publicClient.readContract({
+      address: hook.address,
+      abi: hook.abi,
+      functionName: "launchConfigs",
+      args: [selectedPool.id],
+    })) as readonly [boolean, `0x${string}`, bigint];
+
+    if (!launchCfg?.[0]) {
+      notification.error("This pool has no LaunchLock initialized yet. Initialize lock first, then add liquidity.");
+      return;
+    }
 
     const key = {
       currency0: selectedPool.currency0,
