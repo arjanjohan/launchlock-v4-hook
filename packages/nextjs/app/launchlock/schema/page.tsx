@@ -169,59 +169,63 @@ const SchemaPage = () => {
         </div>
       </div>
 
-      <div className="card bg-base-100 shadow-xl">
-        <div className="card-body">
-          <h2 className="card-title">Pool Lock Summary</h2>
-          <div className="stats stats-vertical lg:stats-horizontal shadow">
-            <div className="stat">
-              <div className="stat-title">Initialized</div>
-              <div className="stat-value text-lg">{(launchCfg as any)?.[0] ? "Yes" : "No"}</div>
-            </div>
-            <div className="stat">
-              <div className="stat-title">Pool Owner</div>
-              <div className="stat-value text-sm break-all">{(launchCfg as any)?.[1] || address || "-"}</div>
-            </div>
-            <div className="stat">
-              <div className="stat-title">Pool Lock Remaining</div>
-              <div className="stat-value text-lg">{remainingHuman}</div>
-              <div className="stat-desc">{remainingSeconds}s remaining</div>
-            </div>
-            <div className="stat">
-              <div className="stat-title">Assigned Positions</div>
-              <div className="stat-value text-lg">{eventGroups.totalAssigned}</div>
+      {poolId !== ZERO_BYTES32 && (
+        <>
+          <div className="card bg-base-100 shadow-xl">
+            <div className="card-body">
+              <h2 className="card-title">Pool Lock Summary</h2>
+              <div className="stats stats-vertical lg:stats-horizontal shadow">
+                <div className="stat">
+                  <div className="stat-title">Initialized</div>
+                  <div className="stat-value text-lg">{(launchCfg as any)?.[0] ? "Yes" : "No"}</div>
+                </div>
+                <div className="stat">
+                  <div className="stat-title">Pool Owner</div>
+                  <div className="stat-value text-sm break-all">{(launchCfg as any)?.[1] || address || "-"}</div>
+                </div>
+                <div className="stat">
+                  <div className="stat-title">Pool Lock Remaining</div>
+                  <div className="stat-value text-lg">{remainingHuman}</div>
+                  <div className="stat-desc">{remainingSeconds}s remaining</div>
+                </div>
+                <div className="stat">
+                  <div className="stat-title">Assigned Positions</div>
+                  <div className="stat-value text-lg">{eventGroups.totalAssigned}</div>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <div className="card bg-base-100 shadow-xl">
-        <div className="card-body">
-          <h2 className="card-title">Group Visualization</h2>
-          <div className="overflow-x-auto">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Group ID</th>
-                  <th>Exists</th>
-                  <th>Enabled</th>
-                  <th>Lock End</th>
-                  <th>Assigned Positions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {groupIds.map(groupId => (
-                  <GroupRow
-                    key={groupId}
-                    poolId={poolId as `0x${string}`}
-                    groupId={groupId}
-                    assigned={eventGroups.assignmentByGroup.get(groupId.toLowerCase()) || 0}
-                  />
-                ))}
-              </tbody>
-            </table>
+          <div className="card bg-base-100 shadow-xl">
+            <div className="card-body">
+              <h2 className="card-title">Group Visualization</h2>
+              <div className="overflow-x-auto">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Group ID</th>
+                      <th>Exists</th>
+                      <th>Enabled</th>
+                      <th>Lock End</th>
+                      <th>Assigned Positions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {groupIds.map(groupId => (
+                      <GroupRow
+                        key={groupId}
+                        poolId={poolId as `0x${string}`}
+                        groupId={groupId}
+                        assigned={eventGroups.assignmentByGroup.get(groupId.toLowerCase()) || 0}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 };

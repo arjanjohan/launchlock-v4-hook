@@ -67,7 +67,7 @@ const LiquidityPage = () => {
     contractName: "PoolManager",
     eventName: "Initialize",
     fromBlock: HOOK_DEPLOY_BLOCK,
-    watch: true,
+    watch: false,
     enabled: !!hook?.address,
   });
 
@@ -119,7 +119,7 @@ const LiquidityPage = () => {
     contractName: "PositionManager",
     eventName: "Transfer",
     fromBlock: HOOK_DEPLOY_BLOCK,
-    watch: true,
+    watch: false,
     enabled: !!address,
   });
 
@@ -144,12 +144,7 @@ const LiquidityPage = () => {
 
     const run = async () => {
       if (!publicClient || !posm?.address || !selectedPool) {
-        if (!cancelled) {
-          setFilteredTokenIds(prev => {
-            const next = myTokenIds;
-            return prev.join(",") === next.join(",") ? prev : next;
-          });
-        }
+        if (!cancelled) setFilteredTokenIds(prev => (prev.length ? [] : prev));
         return;
       }
 
