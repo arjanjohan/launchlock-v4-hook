@@ -9,7 +9,7 @@ import {
   useScaffoldReadContract,
   useScaffoldWriteContract,
 } from "~~/hooks/scaffold-eth";
-import { getParsedError, notification } from "~~/utils/scaffold-eth";
+import { notification } from "~~/utils/scaffold-eth";
 
 const MAX_UINT160 = 2n ** 160n - 1n;
 const MAX_UINT256 = 2n ** 256n - 1n;
@@ -505,9 +505,9 @@ const LiquidityPage = () => {
                     className="btn btn-sm btn-outline mt-2"
                     disabled={token0Ready}
                     onClick={() =>
-                      prepareSingleToken(selectedPool.currency0, tokenMeta0.symbol, token0Ready).catch(e =>
-                        notification.error(getParsedError(e)),
-                      )
+                      prepareSingleToken(selectedPool.currency0, tokenMeta0.symbol, token0Ready).catch(() => {
+                        // already surfaced by scaffold write pipeline
+                      })
                     }
                   >
                     {token0Ready ? `${tokenMeta0.symbol} approved` : `Approve ${tokenMeta0.symbol}`}
@@ -523,9 +523,9 @@ const LiquidityPage = () => {
                     className="btn btn-sm btn-outline mt-2"
                     disabled={token1Ready}
                     onClick={() =>
-                      prepareSingleToken(selectedPool.currency1, tokenMeta1.symbol, token1Ready).catch(e =>
-                        notification.error(getParsedError(e)),
-                      )
+                      prepareSingleToken(selectedPool.currency1, tokenMeta1.symbol, token1Ready).catch(() => {
+                        // already surfaced by scaffold write pipeline
+                      })
                     }
                   >
                     {token1Ready ? `${tokenMeta1.symbol} approved` : `Approve ${tokenMeta1.symbol}`}
@@ -575,7 +575,11 @@ const LiquidityPage = () => {
               <button
                 className="btn btn-primary"
                 disabled={!selectedPool || isPosmPending}
-                onClick={() => addFullRange().catch(e => notification.error(getParsedError(e)))}
+                onClick={() =>
+                  addFullRange().catch(() => {
+                    // already surfaced by scaffold write pipeline
+                  })
+                }
               >
                 Add Full Range Liquidity
               </button>
@@ -614,7 +618,11 @@ const LiquidityPage = () => {
               <button
                 className="btn btn-secondary"
                 disabled={!selectedPool || !tokenId || !currentLiquidity || isPosmPending}
-                onClick={() => removeFullRange().catch(e => notification.error(getParsedError(e)))}
+                onClick={() =>
+                  removeFullRange().catch(() => {
+                    // already surfaced by scaffold write pipeline
+                  })
+                }
               >
                 Remove Full Liquidity
               </button>
