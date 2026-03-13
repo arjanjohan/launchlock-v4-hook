@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { encodeAbiParameters } from "viem";
+import { encodeAbiParameters, formatUnits, parseUnits } from "viem";
 import { useAccount, usePublicClient } from "wagmi";
 import {
   useDeployedContractInfo,
@@ -11,14 +11,24 @@ import {
 } from "~~/hooks/scaffold-eth";
 import { getParsedError, notification } from "~~/utils/scaffold-eth";
 
-const MAX_UINT160 = (2n ** 160n - 1n).toString();
-
+const MAX_UINT160 = 2n ** 160n - 1n;
 const HOOK_DEPLOY_BLOCK = 46575788n;
 
 const tokenOptions = [
   { symbol: "UNI", contractName: "DemoUNI" as const, address: "0x98E4D8B01561228Be089b04378adAECd39884016" },
   { symbol: "USDC", contractName: "DemoUSDC" as const, address: "0x81fC41ffA0B48462fa280e154bB288a245a7A263" },
   { symbol: "PEPE", contractName: "DemoPEPE" as const, address: "0x15B13dEF61E1AcCb4Ac356a2d13e0608f1643b9d" },
+] as const;
+
+const erc20Abi = [
+  {
+    type: "function",
+    name: "balanceOf",
+    stateMutability: "view",
+    inputs: [{ name: "account", type: "address" }],
+    outputs: [{ type: "uint256" }],
+  },
+  { type: "function", name: "decimals", stateMutability: "view", inputs: [], outputs: [{ type: "uint8" }] },
 ] as const;
 
 const fullRangeTicks = (tickSpacing: number) => {
@@ -35,9 +45,15 @@ const LiquidityPage = () => {
 
   const [selectedPoolId, setSelectedPoolId] = useState<`0x${string}` | "">("");
   const [tokenId, setTokenId] = useState("");
-  const [liquidityAmount, setLiquidityAmount] = useState("1000000000000000000");
-  const [amount0Max, setAmount0Max] = useState("1000000000000000000");
-  const [amount1Max, setAmount1Max] = useState("1000000000000000000");
+
+  const [liquidityAmountRaw, setLiquidityAmountRaw] = useState("1000000000000000000");
+  const [amount0Human, setAmount0Human] = useState("1");
+  const [amount1Human, setAmount1Human] = useState("1");
+
+  const [dec0, setDec0] = useState(18);
+  const [dec1, setDec1] = useState(18);
+  const [bal0, setBal0] = useState<bigint>(0n);
+  const [bal1, setBal1] = useState<bigint>(0n);
 
   const { writeContractAsync: writePosm, isMining: isPosmPending } = useScaffoldWriteContract({
     contractName: "PositionManager",
@@ -70,6 +86,25 @@ const LiquidityPage = () => {
   const selectedPool = pools.find(p => p.id === selectedPoolId);
   const { tickLower, tickUpper } = fullRangeTicks(selectedPool?.tickSpacing || 60);
 
+  const tokenMeta0 = tokenOptions.find(t => t.address.toLowerCase() === selectedPool?.currency0?.toLowerCase());
+  const tokenMeta1 = tokenOptions.find(t => t.address.toLowerCase() === selectedPool?.currency1?.toLowerCase());
+
+  const amount0MaxRaw = useMemo(() => {
+    try {
+      return parseUnits(amount0Human || "0", dec0);
+    } catch {
+      return 0n;
+    }
+  }, [amount0Human, dec0]);
+
+  const amount1MaxRaw = useMemo(() => {
+    try {
+      return parseUnits(amount1Human || "0", dec1);
+    } catch {
+      return 0n;
+    }
+  }, [amount1Human, dec1]);
+
   const { data: currentLiquidity } = useScaffoldReadContract({
     contractName: "PositionManager",
     functionName: "getPositionLiquidity",
@@ -99,11 +134,17 @@ const LiquidityPage = () => {
   }, [transferEvents, address]);
 
   const [filteredTokenIds, setFilteredTokenIds] = useState<string[]>([]);
+  const myTokenIdsKey = myTokenIds.join(",");
+  const selectedPoolKey = selectedPool
+    ? `${selectedPool.currency0}-${selectedPool.currency1}-${selectedPool.fee}-${selectedPool.tickSpacing}`
+    : "";
 
   useEffect(() => {
+    let cancelled = false;
+
     const run = async () => {
       if (!publicClient || !posm?.address || !selectedPool) {
-        setFilteredTokenIds(myTokenIds);
+        if (!cancelled) setFilteredTokenIds(myTokenIds);
         return;
       }
 
@@ -119,6 +160,7 @@ const LiquidityPage = () => {
 
           const key = res?.[0];
           if (!key) continue;
+
           const samePool =
             String(key.currency0).toLowerCase() === selectedPool.currency0.toLowerCase() &&
             String(key.currency1).toLowerCase() === selectedPool.currency1.toLowerCase() &&
@@ -128,14 +170,70 @@ const LiquidityPage = () => {
 
           if (samePool) next.push(id);
         } catch {
-          // ignore unreadable token ids
+          // ignore
         }
       }
-      setFilteredTokenIds(next);
+
+      if (!cancelled) setFilteredTokenIds(next);
     };
 
     run();
-  }, [myTokenIds, publicClient, posm?.address, posm?.abi, selectedPool, hook?.address]);
+    return () => {
+      cancelled = true;
+    };
+  }, [myTokenIdsKey, myTokenIds, publicClient, posm?.address, posm?.abi, selectedPool, selectedPoolKey, hook?.address]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const read = async () => {
+      if (!publicClient || !address || !selectedPool) {
+        if (!cancelled) {
+          setDec0(18);
+          setDec1(18);
+          setBal0(0n);
+          setBal1(0n);
+        }
+        return;
+      }
+
+      try {
+        const [d0, d1, b0, b1] = await Promise.all([
+          publicClient.readContract({ address: selectedPool.currency0, abi: erc20Abi, functionName: "decimals" }),
+          publicClient.readContract({ address: selectedPool.currency1, abi: erc20Abi, functionName: "decimals" }),
+          publicClient.readContract({
+            address: selectedPool.currency0,
+            abi: erc20Abi,
+            functionName: "balanceOf",
+            args: [address as `0x${string}`],
+          }),
+          publicClient.readContract({
+            address: selectedPool.currency1,
+            abi: erc20Abi,
+            functionName: "balanceOf",
+            args: [address as `0x${string}`],
+          }),
+        ]);
+
+        if (!cancelled) {
+          setDec0(Number(d0));
+          setDec1(Number(d1));
+          setBal0(b0 as bigint);
+          setBal1(b1 as bigint);
+        }
+      } catch {
+        if (!cancelled) {
+          setDec0(18);
+          setDec1(18);
+        }
+      }
+    };
+
+    read();
+    return () => {
+      cancelled = true;
+    };
+  }, [publicClient, address, selectedPoolId, selectedPool]);
 
   const mintToken = async (symbol: string) => {
     const amount = 100000n * 10n ** 18n;
@@ -147,7 +245,7 @@ const LiquidityPage = () => {
   const approveToken = async (tokenAddress: `0x${string}`) => {
     await writePermit2({
       functionName: "approve",
-      args: [tokenAddress, posm?.address as `0x${string}`, BigInt(MAX_UINT160), 281474976710655],
+      args: [tokenAddress, posm?.address as `0x${string}`, MAX_UINT160, 281474976710655],
     });
     notification.success("Permit2 approval set");
   };
@@ -187,9 +285,9 @@ const LiquidityPage = () => {
         key,
         tickLower,
         tickUpper,
-        BigInt(liquidityAmount),
-        BigInt(amount0Max),
-        BigInt(amount1Max),
+        BigInt(liquidityAmountRaw || "0"),
+        amount0MaxRaw,
+        amount1MaxRaw,
         address as `0x${string}`,
         "0x",
       ],
@@ -274,15 +372,16 @@ const LiquidityPage = () => {
             ))}
           </div>
           <div className="flex gap-2 flex-wrap">
-            {tokenOptions.map(t => (
-              <button
-                key={t.symbol}
-                className="btn btn-sm btn-outline"
-                onClick={() => approveToken(t.address as `0x${string}`)}
-              >
-                Permit2 approve {t.symbol}
-              </button>
-            ))}
+            {selectedPool && (
+              <>
+                <button className="btn btn-sm btn-outline" onClick={() => approveToken(selectedPool.currency0)}>
+                  Permit2 approve {tokenMeta0?.symbol || "Token0"}
+                </button>
+                <button className="btn btn-sm btn-outline" onClick={() => approveToken(selectedPool.currency1)}>
+                  Permit2 approve {tokenMeta1?.symbol || "Token1"}
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -290,24 +389,36 @@ const LiquidityPage = () => {
       <div className="card bg-base-100 shadow-xl">
         <div className="card-body space-y-2">
           <h2 className="card-title">Add Liquidity</h2>
+          <div className="text-sm opacity-80">
+            Pair: {tokenMeta0?.symbol || "Token0"} / {tokenMeta1?.symbol || "Token1"}
+          </div>
+          <div className="text-xs opacity-70">
+            Balance {tokenMeta0?.symbol || "Token0"}: {formatUnits(bal0, dec0)}
+          </div>
           <input
             className="input input-bordered"
-            value={liquidityAmount}
-            onChange={e => setLiquidityAmount(e.target.value)}
-            placeholder="liquidity (uint256)"
+            value={amount0Human}
+            onChange={e => setAmount0Human(e.target.value)}
+            placeholder={`${tokenMeta0?.symbol || "Token0"} amount`}
           />
+
+          <div className="text-xs opacity-70">
+            Balance {tokenMeta1?.symbol || "Token1"}: {formatUnits(bal1, dec1)}
+          </div>
           <input
             className="input input-bordered"
-            value={amount0Max}
-            onChange={e => setAmount0Max(e.target.value)}
-            placeholder="amount0Max"
+            value={amount1Human}
+            onChange={e => setAmount1Human(e.target.value)}
+            placeholder={`${tokenMeta1?.symbol || "Token1"} amount`}
           />
+
           <input
             className="input input-bordered"
-            value={amount1Max}
-            onChange={e => setAmount1Max(e.target.value)}
-            placeholder="amount1Max"
+            value={liquidityAmountRaw}
+            onChange={e => setLiquidityAmountRaw(e.target.value)}
+            placeholder="Liquidity units (advanced)"
           />
+
           <button
             className="btn btn-primary"
             disabled={!selectedPool || isPosmPending}
@@ -353,7 +464,7 @@ const LiquidityPage = () => {
         </div>
       </div>
 
-      <div className="text-xs opacity-70">If add tx fails, run mint + Permit2 approve first for both pool tokens.</div>
+      <div className="text-xs opacity-70">If tx fails, use the demo mint and permit buttons first for pool tokens.</div>
     </div>
   );
 };
