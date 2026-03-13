@@ -1,13 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AddressInput } from "@scaffold-ui/components";
 import { encodeAbiParameters, keccak256 } from "viem";
 import { useAccount } from "wagmi";
 import { useDeployedContractInfo, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 import { getParsedError, notification } from "~~/utils/scaffold-eth";
-
-const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 const DEMO_TOKENS = [
   { symbol: "UNI", label: "Uniswap Demo (UNI)", address: "0x98E4D8B01561228Be089b04378adAECd39884016" },
@@ -15,18 +12,26 @@ const DEMO_TOKENS = [
   { symbol: "PEPE", label: "Pepe Demo (PEPE)", address: "0x15B13dEF61E1AcCb4Ac356a2d13e0608f1643b9d" },
 ] as const;
 
+const FEE_PRESETS = [
+  { label: "0.01% (stable-like)", fee: 100, tickSpacing: 1 },
+  { label: "0.05%", fee: 500, tickSpacing: 10 },
+  { label: "0.30% (standard)", fee: 3000, tickSpacing: 60 },
+  { label: "1.00% (volatile)", fee: 10000, tickSpacing: 200 },
+] as const;
+
+const Q96 = 2 ** 96;
+
 const CreatePoolPage = () => {
   const { address } = useAccount();
   const { data: deployedHook } = useDeployedContractInfo({ contractName: "LaunchLockHook" });
 
   const [currency0, setCurrency0] = useState<string>(DEMO_TOKENS[0].address);
   const [currency1, setCurrency1] = useState<string>(DEMO_TOKENS[1].address);
-  const [hooks, setHooks] = useState<string>(EMPTY_ADDRESS);
-  const [fee, setFee] = useState(3000n);
-  const [tickSpacing, setTickSpacing] = useState(60n);
-  const [sqrtPriceX96, setSqrtPriceX96] = useState(79228162514264337593543950336n); // 1.0
-  const [poolOwner, setPoolOwner] = useState(EMPTY_ADDRESS);
-  const [lockEndTime, setLockEndTime] = useState(BigInt(Math.floor(Date.now() / 1000) + 7 * 24 * 3600));
+  const [feePreset, setFeePreset] = useState<number>(2);
+  const [initialPrice, setInitialPrice] = useState<string>("1"); // 1 token0 = X token1
+
+  const [lockAmount, setLockAmount] = useState<number>(7);
+  const [lockUnit, setLockUnit] = useState<"days" | "hours">("days");
 
   const { writeContractAsync: writePoolManager, isMining: isCreatingPool } = useScaffoldWriteContract({
     contractName: "PoolManager",
@@ -35,15 +40,25 @@ const CreatePoolPage = () => {
     contractName: "LaunchLockHook",
   });
 
+  const selectedPreset = FEE_PRESETS[feePreset];
+
+  const hooksAddress = deployedHook?.address;
+
+  const sqrtPriceX96 = useMemo(() => {
+    const p = Number(initialPrice);
+    if (!Number.isFinite(p) || p <= 0) return 0n;
+    return BigInt(Math.floor(Math.sqrt(p) * Q96));
+  }, [initialPrice]);
+
   const keyArgs = useMemo(
     () => ({
       currency0: currency0 as `0x${string}`,
       currency1: currency1 as `0x${string}`,
-      fee: Number(fee),
-      tickSpacing: Number(tickSpacing),
-      hooks: hooks as `0x${string}`,
+      fee: selectedPreset.fee,
+      tickSpacing: selectedPreset.tickSpacing,
+      hooks: (hooksAddress || "0x0000000000000000000000000000000000000000") as `0x${string}`,
     }),
-    [currency0, currency1, fee, tickSpacing, hooks],
+    [currency0, currency1, selectedPreset, hooksAddress],
   );
 
   const computedPoolId = useMemo(() => {
@@ -70,11 +85,17 @@ const CreatePoolPage = () => {
     }
   }, [keyArgs]);
 
+  const lockEndTime = useMemo(() => {
+    const amount = Number(lockAmount || 0);
+    const secs = lockUnit === "days" ? amount * 24 * 3600 : amount * 3600;
+    return BigInt(Math.floor(Date.now() / 1000) + Math.max(0, secs));
+  }, [lockAmount, lockUnit]);
+
   return (
     <div className="p-8 space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Create Pool + Initialize Launch Lock</h1>
-        <p className="opacity-70">Simple demo flow: choose tokens, create pool, then initialize pool lock.</p>
+        <p className="opacity-70">Simple demo flow: choose tokens, set fee tier + price, create pool, lock it.</p>
       </div>
 
       <div className="card bg-base-100 shadow-xl">
@@ -107,45 +128,40 @@ const CreatePoolPage = () => {
             ))}
           </select>
 
-          <label className="text-sm font-semibold">Hook Address</label>
-          <AddressInput
-            value={hooks}
-            onChange={setHooks}
-            placeholder={deployedHook?.address ? `suggested: ${deployedHook.address}` : "hook address"}
-          />
-          {deployedHook?.address && (
-            <button className="btn btn-xs btn-outline w-fit" onClick={() => setHooks(deployedHook.address)}>
-              Use deployed LaunchLockHook
-            </button>
-          )}
+          <label className="text-sm font-semibold">Fee Tier</label>
+          <select
+            className="select select-bordered w-full"
+            value={feePreset}
+            onChange={e => setFeePreset(Number(e.target.value))}
+          >
+            {FEE_PRESETS.map((preset, idx) => (
+              <option key={preset.label} value={idx}>
+                {preset.label} — fee {preset.fee}, tickSpacing {preset.tickSpacing}
+              </option>
+            ))}
+          </select>
 
-          <label className="text-sm font-semibold">Fee Tier (uint24)</label>
+          <label className="text-sm font-semibold">Initial Price</label>
           <input
             className="input input-bordered"
-            value={fee.toString()}
-            onChange={e => setFee(BigInt(e.target.value || "0"))}
-            placeholder="3000 = 0.30%"
+            value={initialPrice}
+            onChange={e => setInitialPrice(e.target.value)}
+            placeholder="1 TOKEN0 = X TOKEN1"
           />
+          <div className="text-xs opacity-70">Interpreted as: 1 currency0 = {initialPrice || "?"} currency1</div>
 
-          <label className="text-sm font-semibold">Tick Spacing (int24)</label>
-          <input
-            className="input input-bordered"
-            value={tickSpacing.toString()}
-            onChange={e => setTickSpacing(BigInt(e.target.value || "0"))}
-            placeholder="e.g. 60"
-          />
+          <label className="text-sm font-semibold">Hook (auto)</label>
+          <div className="input input-bordered flex items-center text-sm">
+            {hooksAddress || "LaunchLockHook not found on this chain"}
+          </div>
 
-          <label className="text-sm font-semibold">Initial Price sqrtPriceX96 (uint160)</label>
-          <input
-            className="input input-bordered"
-            value={sqrtPriceX96.toString()}
-            onChange={e => setSqrtPriceX96(BigInt(e.target.value || "0"))}
-            placeholder="default = 1:1 price"
-          />
-
-          <div className="bg-base-200 rounded p-3 text-xs break-all">
-            <div className="font-semibold">Computed PoolId</div>
-            <div>{computedPoolId || "—"}</div>
+          <div className="collapse collapse-arrow bg-base-200">
+            <input type="checkbox" />
+            <div className="collapse-title text-sm font-medium">Advanced details</div>
+            <div className="collapse-content text-xs space-y-2">
+              <div>sqrtPriceX96: {sqrtPriceX96.toString()}</div>
+              <div className="break-all">poolId: {computedPoolId || "—"}</div>
+            </div>
           </div>
         </div>
       </div>
@@ -154,25 +170,33 @@ const CreatePoolPage = () => {
         <div className="card-body space-y-3">
           <h2 className="card-title">Launch Lock Setup</h2>
 
-          <label className="text-sm font-semibold">Pool Owner</label>
-          <AddressInput
-            value={poolOwner}
-            onChange={setPoolOwner}
-            placeholder={address ? `suggested: ${address}` : "poolOwner"}
-          />
+          <label className="text-sm font-semibold">Pool Owner (auto)</label>
+          <div className="input input-bordered flex items-center text-sm">{address || "Connect wallet"}</div>
 
-          <label className="text-sm font-semibold">Lock End Time (unix timestamp)</label>
-          <input
-            className="input input-bordered"
-            value={lockEndTime.toString()}
-            onChange={e => setLockEndTime(BigInt(e.target.value || "0"))}
-            placeholder="e.g. now + 7 days"
-          />
+          <label className="text-sm font-semibold">Lock Duration</label>
+          <div className="flex gap-2">
+            <input
+              className="input input-bordered w-40"
+              type="number"
+              min={1}
+              value={lockAmount}
+              onChange={e => setLockAmount(Number(e.target.value || 0))}
+            />
+            <select
+              className="select select-bordered"
+              value={lockUnit}
+              onChange={e => setLockUnit(e.target.value as "days" | "hours")}
+            >
+              <option value="days">days</option>
+              <option value="hours">hours</option>
+            </select>
+          </div>
+          <div className="text-xs opacity-70">Computed lockEndTime (unix): {lockEndTime.toString()}</div>
 
           <div className="flex gap-2 flex-wrap">
             <button
               className="btn btn-primary"
-              disabled={isCreatingPool}
+              disabled={isCreatingPool || !hooksAddress || sqrtPriceX96 <= 0n}
               onClick={async () => {
                 try {
                   await writePoolManager({ functionName: "initialize", args: [keyArgs, sqrtPriceX96] });
@@ -187,12 +211,12 @@ const CreatePoolPage = () => {
 
             <button
               className="btn btn-secondary"
-              disabled={isInitializingLock}
+              disabled={isInitializingLock || !address || !hooksAddress}
               onClick={async () => {
                 try {
                   await writeLaunchLock({
                     functionName: "initializeLaunchLock",
-                    args: [keyArgs, (poolOwner || address || EMPTY_ADDRESS) as `0x${string}`, lockEndTime],
+                    args: [keyArgs, address as `0x${string}`, lockEndTime],
                   });
                   notification.success("Launch lock initialized");
                 } catch (e) {
