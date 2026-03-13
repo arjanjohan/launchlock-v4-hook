@@ -85,6 +85,10 @@ const LiquidityPage = () => {
   const [bal1, setBal1] = useState<bigint>(0n);
   const [token0Ready, setToken0Ready] = useState(false);
   const [token1Ready, setToken1Ready] = useState(false);
+  const [token0Erc20Approved, setToken0Erc20Approved] = useState(false);
+  const [token1Erc20Approved, setToken1Erc20Approved] = useState(false);
+  const [token0PermitApproved, setToken0PermitApproved] = useState(false);
+  const [token1PermitApproved, setToken1PermitApproved] = useState(false);
 
   const { writeContractAsync: writePosm, isMining: isPosmPending } = useScaffoldWriteContract({
     contractName: "PositionManager",
@@ -234,6 +238,10 @@ const LiquidityPage = () => {
           setBal1(0n);
           setToken0Ready(false);
           setToken1Ready(false);
+          setToken0Erc20Approved(false);
+          setToken1Erc20Approved(false);
+          setToken0PermitApproved(false);
+          setToken1PermitApproved(false);
         }
         return;
       }
@@ -285,8 +293,16 @@ const LiquidityPage = () => {
           setDec1(Number(d1));
           setBal0(b0 as bigint);
           setBal1(b1 as bigint);
-          const token0ReadyNow = (a0 as bigint) > 0n && ((p0 as readonly [bigint, number, number])?.[0] || 0n) > 0n;
-          const token1ReadyNow = (a1 as bigint) > 0n && ((p1 as readonly [bigint, number, number])?.[0] || 0n) > 0n;
+          const token0Erc20Now = (a0 as bigint) > 0n;
+          const token1Erc20Now = (a1 as bigint) > 0n;
+          const token0PermitNow = ((p0 as readonly [bigint, number, number])?.[0] || 0n) > 0n;
+          const token1PermitNow = ((p1 as readonly [bigint, number, number])?.[0] || 0n) > 0n;
+          const token0ReadyNow = token0Erc20Now && token0PermitNow;
+          const token1ReadyNow = token1Erc20Now && token1PermitNow;
+          setToken0Erc20Approved(token0Erc20Now);
+          setToken1Erc20Approved(token1Erc20Now);
+          setToken0PermitApproved(token0PermitNow);
+          setToken1PermitApproved(token1PermitNow);
           setToken0Ready(token0ReadyNow);
           setToken1Ready(token1ReadyNow);
         }
@@ -296,6 +312,10 @@ const LiquidityPage = () => {
           setDec1(18);
           setToken0Ready(false);
           setToken1Ready(false);
+          setToken0Erc20Approved(false);
+          setToken1Erc20Approved(false);
+          setToken0PermitApproved(false);
+          setToken1PermitApproved(false);
         }
       }
     };
@@ -477,30 +497,40 @@ const LiquidityPage = () => {
             </div>
             <div className="flex gap-2 flex-wrap">
               {tokenMeta0 && (
-                <button
-                  className="btn btn-sm btn-outline"
-                  disabled={token0Ready}
-                  onClick={() =>
-                    prepareSingleToken(selectedPool.currency0, tokenMeta0.symbol, token0Ready).catch(e =>
-                      notification.error(getParsedError(e)),
-                    )
-                  }
-                >
-                  {token0Ready ? `${tokenMeta0.symbol} approved` : `Approve ${tokenMeta0.symbol}`}
-                </button>
+                <div className="p-2 rounded bg-base-200 text-xs min-w-60">
+                  <div className="font-semibold mb-1">{tokenMeta0.symbol}</div>
+                  <div>ERC20 → Permit2: {token0Erc20Approved ? "✅" : "❌"}</div>
+                  <div>Permit2 → PositionManager: {token0PermitApproved ? "✅" : "❌"}</div>
+                  <button
+                    className="btn btn-sm btn-outline mt-2"
+                    disabled={token0Ready}
+                    onClick={() =>
+                      prepareSingleToken(selectedPool.currency0, tokenMeta0.symbol, token0Ready).catch(e =>
+                        notification.error(getParsedError(e)),
+                      )
+                    }
+                  >
+                    {token0Ready ? `${tokenMeta0.symbol} approved` : `Approve ${tokenMeta0.symbol}`}
+                  </button>
+                </div>
               )}
               {tokenMeta1 && (
-                <button
-                  className="btn btn-sm btn-outline"
-                  disabled={token1Ready}
-                  onClick={() =>
-                    prepareSingleToken(selectedPool.currency1, tokenMeta1.symbol, token1Ready).catch(e =>
-                      notification.error(getParsedError(e)),
-                    )
-                  }
-                >
-                  {token1Ready ? `${tokenMeta1.symbol} approved` : `Approve ${tokenMeta1.symbol}`}
-                </button>
+                <div className="p-2 rounded bg-base-200 text-xs min-w-60">
+                  <div className="font-semibold mb-1">{tokenMeta1.symbol}</div>
+                  <div>ERC20 → Permit2: {token1Erc20Approved ? "✅" : "❌"}</div>
+                  <div>Permit2 → PositionManager: {token1PermitApproved ? "✅" : "❌"}</div>
+                  <button
+                    className="btn btn-sm btn-outline mt-2"
+                    disabled={token1Ready}
+                    onClick={() =>
+                      prepareSingleToken(selectedPool.currency1, tokenMeta1.symbol, token1Ready).catch(e =>
+                        notification.error(getParsedError(e)),
+                      )
+                    }
+                  >
+                    {token1Ready ? `${tokenMeta1.symbol} approved` : `Approve ${tokenMeta1.symbol}`}
+                  </button>
+                </div>
               )}
             </div>
           </div>
