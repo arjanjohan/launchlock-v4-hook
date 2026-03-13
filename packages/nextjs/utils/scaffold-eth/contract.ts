@@ -354,8 +354,8 @@ export const getParsedErrorWithAllAbis = (error: any, chainId: AllowedChainIds):
     }
 
     try {
-      // Get all deployed contracts for the current chain
-      const chainContracts = deployedContractsData[chainId as keyof typeof deployedContractsData];
+      // Get all known contracts (deployed + external) for the current chain
+      const chainContracts = contracts?.[chainId as keyof typeof contracts];
 
       if (!chainContracts) {
         return originalParsedError;
@@ -392,6 +392,11 @@ export const getParsedErrorWithAllAbis = (error: any, chainId: AllowedChainIds):
       const errorInfo = errorLookup[signature];
       if (errorInfo) {
         return `Contract function execution reverted with the following reason:\n${errorInfo.signature} from ${errorInfo.contract} contract`;
+      }
+
+      // Uniswap v4 wraps downstream hook errors with WrappedError
+      if (signature.toLowerCase() === "0x90bfb865") {
+        return "Transaction reverted with a wrapped internal error (Uniswap v4 CustomRevert.WrappedError). In this flow, this commonly means liquidity removal is blocked by LaunchLock until unlock time.";
       }
 
       // If not found in simple lookup, provide a helpful message with context
