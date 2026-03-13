@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { encodeAbiParameters, formatUnits, parseUnits } from "viem";
 import { useAccount, usePublicClient } from "wagmi";
+import { PoolSelect } from "~~/components/launchlock/PoolSelect";
 import {
   useDeployedContractInfo,
   useScaffoldEventHistory,
@@ -489,18 +490,7 @@ const LiquidityPage = () => {
       <div className="card bg-base-100 shadow-xl">
         <div className="card-body space-y-2">
           <h2 className="card-title">Pool</h2>
-          <select
-            className="select select-bordered w-full"
-            value={selectedPoolId}
-            onChange={e => setSelectedPoolId(e.target.value as `0x${string}`)}
-          >
-            <option value="">Choose pool…</option>
-            {pools.map(p => (
-              <option key={p.id} value={p.id}>
-                {p.id} | fee {p.fee} | spacing {p.tickSpacing}
-              </option>
-            ))}
-          </select>
+          <PoolSelect value={selectedPoolId} onChange={v => setSelectedPoolId(v)} />
           <div className="text-xs opacity-70">
             Ticks used: {tickLower} to {tickUpper} (full range)
           </div>

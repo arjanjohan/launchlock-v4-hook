@@ -2,10 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { useAccount } from "wagmi";
+import { PoolSelect } from "~~/components/launchlock/PoolSelect";
 import { useScaffoldEventHistory, useScaffoldReadContract } from "~~/hooks/scaffold-eth";
 
 const ZERO_BYTES32 = `0x${"0".repeat(64)}`;
-const HOOK_DEPLOY_BLOCK = 46563894n;
 
 const formatRemaining = (totalSeconds: number) => {
   const s = Math.max(0, Math.floor(totalSeconds));
@@ -23,36 +23,10 @@ const formatRemaining = (totalSeconds: number) => {
 const SchemaPage = () => {
   const { address } = useAccount();
 
-  const [selectedPoolId, setSelectedPoolId] = useState<`0x${string}`>(ZERO_BYTES32 as `0x${string}`);
-  const [isManualPoolInput, setIsManualPoolInput] = useState(false);
-  const [manualPoolId, setManualPoolId] = useState<`0x${string}`>(ZERO_BYTES32 as `0x${string}`);
+  const [selectedPoolId, setSelectedPoolId] = useState<`0x${string}` | "">("");
   const [groupIdsRaw, setGroupIdsRaw] = useState(ZERO_BYTES32);
 
-  const { data: poolCreatedEvents } = useScaffoldEventHistory({
-    contractName: "LaunchLockHook",
-    eventName: "LaunchLockInitialized",
-    fromBlock: HOOK_DEPLOY_BLOCK,
-    watch: true,
-  });
-
-  const poolOptions = useMemo(() => {
-    const seen = new Set<string>();
-    const rows: { poolId: `0x${string}`; poolOwner: string; lockEndTime: number }[] = [];
-
-    for (const ev of poolCreatedEvents || []) {
-      const poolId = ev.args?.poolId as `0x${string}` | undefined;
-      const poolOwner = (ev.args?.poolOwner as string | undefined) || "";
-      const lockEndTime = Number(ev.args?.lockEndTime || 0);
-      if (!poolId) continue;
-      if (seen.has(poolId.toLowerCase())) continue;
-      seen.add(poolId.toLowerCase());
-      rows.push({ poolId, poolOwner, lockEndTime });
-    }
-
-    return rows;
-  }, [poolCreatedEvents]);
-
-  const poolId = isManualPoolInput ? manualPoolId : selectedPoolId;
+  const poolId = (selectedPoolId || ZERO_BYTES32) as `0x${string}`;
 
   const groupIds = useMemo(
     () =>
@@ -122,35 +96,7 @@ const SchemaPage = () => {
       <div className="card bg-base-100 shadow-xl">
         <div className="card-body space-y-3">
           <h2 className="card-title">Select Pool</h2>
-          <select
-            className="select select-bordered w-full"
-            value={isManualPoolInput ? "manual" : selectedPoolId}
-            onChange={e => {
-              if (e.target.value === "manual") {
-                setIsManualPoolInput(true);
-                return;
-              }
-              setIsManualPoolInput(false);
-              setSelectedPoolId(e.target.value as `0x${string}`);
-            }}
-          >
-            <option value={ZERO_BYTES32}>Choose a pool…</option>
-            {poolOptions.map(pool => (
-              <option key={pool.poolId} value={pool.poolId}>
-                {pool.poolId} | owner {pool.poolOwner.slice(0, 8)}...
-              </option>
-            ))}
-            <option value="manual">Manual input…</option>
-          </select>
-
-          {isManualPoolInput && (
-            <input
-              className="input input-bordered w-full"
-              placeholder="Paste poolId manually (0x...)"
-              value={manualPoolId}
-              onChange={e => setManualPoolId(e.target.value as `0x${string}`)}
-            />
-          )}
+          <PoolSelect value={selectedPoolId} onChange={v => setSelectedPoolId(v)} includeManual={false} />
 
           <div className="text-xs bg-base-200 p-3 rounded break-all">Selected poolId: {poolId}</div>
 
