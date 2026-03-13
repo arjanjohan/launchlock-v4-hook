@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { encodeAbiParameters } from "viem";
-import { useAccount } from "wagmi";
+import { useAccount, usePublicClient } from "wagmi";
 import {
   useDeployedContractInfo,
   useScaffoldEventHistory,
@@ -29,6 +29,7 @@ const fullRangeTicks = (tickSpacing: number) => {
 
 const LiquidityPage = () => {
   const { address } = useAccount();
+  const publicClient = usePublicClient();
   const { data: hook } = useDeployedContractInfo({ contractName: "LaunchLockHook" });
   const { data: posm } = useDeployedContractInfo({ contractName: "PositionManager" });
 
@@ -96,6 +97,45 @@ const LiquidityPage = () => {
     }
     return Array.from(mine).sort((a, b) => Number(b) - Number(a));
   }, [transferEvents, address]);
+
+  const [filteredTokenIds, setFilteredTokenIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    const run = async () => {
+      if (!publicClient || !posm?.address || !selectedPool) {
+        setFilteredTokenIds(myTokenIds);
+        return;
+      }
+
+      const next: string[] = [];
+      for (const id of myTokenIds) {
+        try {
+          const res = (await publicClient.readContract({
+            address: posm.address,
+            abi: posm.abi,
+            functionName: "getPoolAndPositionInfo",
+            args: [BigInt(id)],
+          })) as any;
+
+          const key = res?.[0];
+          if (!key) continue;
+          const samePool =
+            String(key.currency0).toLowerCase() === selectedPool.currency0.toLowerCase() &&
+            String(key.currency1).toLowerCase() === selectedPool.currency1.toLowerCase() &&
+            Number(key.fee) === selectedPool.fee &&
+            Number(key.tickSpacing) === selectedPool.tickSpacing &&
+            String(key.hooks).toLowerCase() === (hook?.address || "").toLowerCase();
+
+          if (samePool) next.push(id);
+        } catch {
+          // ignore unreadable token ids
+        }
+      }
+      setFilteredTokenIds(next);
+    };
+
+    run();
+  }, [myTokenIds, publicClient, posm?.address, posm?.abi, selectedPool, hook?.address]);
 
   const mintToken = async (symbol: string) => {
     const amount = 100000n * 10n ** 18n;
@@ -283,7 +323,7 @@ const LiquidityPage = () => {
           <h2 className="card-title">Remove Liquidity</h2>
           <select className="select select-bordered w-full" value={tokenId} onChange={e => setTokenId(e.target.value)}>
             <option value="">Choose your position tokenId…</option>
-            {myTokenIds.map(id => (
+            {filteredTokenIds.map(id => (
               <option key={id} value={id}>
                 #{id}
               </option>
