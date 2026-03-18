@@ -69,7 +69,15 @@ Visit your app on: `http://localhost:3000`.
 yarn foundry:test
 ```
 
-## Built With
+## Built for UHI8 With
 
 - [Scaffold-ETH 2](https://scaffoldeth.io)
 - [Uniswap v4](https://docs.uniswap.org/)
+
+## Links
+- [Unichain smart contract](https://unichain-sepolia.blockscout.com/address/0x0b14cf682d7dc7ebdb5461af0c31d5199ae24a00)
+- [Vercel deployment](https://launchlock-ruby.vercel.app/)
+- [Demo video](https://youtu.be/8KKX6WCKvY0)
+
+https://launchlock-ruby.vercel.app/">App</a> |
+  <a href="https://youtu.be/8KKX6WCKvY0">
