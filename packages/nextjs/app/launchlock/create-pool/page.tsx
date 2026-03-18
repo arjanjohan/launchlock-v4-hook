@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { encodeAbiParameters, keccak256 } from "viem";
 import { useAccount } from "wagmi";
 import { useDeployedContractInfo, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
@@ -94,11 +94,15 @@ const CreatePoolPage = () => {
     }
   }, [keyArgs]);
 
+  const [now, setNow] = useState(0);
+  useEffect(() => setNow(Math.floor(Date.now() / 1000)), []);
+
   const lockEndTime = useMemo(() => {
+    if (!now) return 0n;
     const amount = Number(lockAmount || 0);
     const secs = lockUnit === "days" ? amount * 24 * 3600 : amount * 3600;
-    return BigInt(Math.floor(Date.now() / 1000) + Math.max(0, secs));
-  }, [lockAmount, lockUnit]);
+    return BigInt(now + Math.max(0, secs));
+  }, [lockAmount, lockUnit, now]);
 
   return (
     <div className="p-8 space-y-6">

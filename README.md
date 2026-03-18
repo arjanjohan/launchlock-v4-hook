@@ -3,9 +3,10 @@
 
 <div align="center">
 
-![logo](/nextjs/public/logo.png)
+![logo](/packages/nextjs/public/logo.png)
 <h4 align="center">
-  <a href="https://launchlock-ruby.vercel.app/">App</a>
+  <a href="https://launchlock-ruby.vercel.app/">App</a> |
+  <a href="https://youtu.be/8KKX6WCKvY0">Video</a>
 </h4>
 </div>
 

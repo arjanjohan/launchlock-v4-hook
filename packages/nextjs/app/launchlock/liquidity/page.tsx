@@ -10,11 +10,11 @@ import {
   useScaffoldReadContract,
   useScaffoldWriteContract,
 } from "~~/hooks/scaffold-eth";
+import { HOOK_DEPLOY_BLOCK } from "~~/utils/launchlock/constants";
 import { notification } from "~~/utils/scaffold-eth";
 
 const MAX_UINT160 = 2n ** 160n - 1n;
 const MAX_UINT256 = 2n ** 256n - 1n;
-const HOOK_DEPLOY_BLOCK = 46575788n;
 
 const tokenOptions = [
   { symbol: "UNI", contractName: "DemoUNI" as const, address: "0x98E4D8B01561228Be089b04378adAECd39884016" },
@@ -161,7 +161,7 @@ const LiquidityPage = () => {
     contractName: "PositionManager",
     eventName: "Transfer",
     fromBlock: HOOK_DEPLOY_BLOCK,
-    watch: false,
+    watch: true,
     enabled: !!address,
   });
 

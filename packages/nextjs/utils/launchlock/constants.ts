@@ -1,0 +1,1 @@
+export const HOOK_DEPLOY_BLOCK = 46926685n;

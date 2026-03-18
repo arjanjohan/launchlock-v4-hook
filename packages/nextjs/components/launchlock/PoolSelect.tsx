@@ -2,8 +2,7 @@
 
 import { useMemo } from "react";
 import { useDeployedContractInfo, useScaffoldEventHistory } from "~~/hooks/scaffold-eth";
-
-const HOOK_DEPLOY_BLOCK = 46575788n;
+import { HOOK_DEPLOY_BLOCK } from "~~/utils/launchlock/constants";
 
 const symbolByAddress: Record<string, string> = {
   "0x98e4d8b01561228be089b04378adaecd39884016": "UNI",
@@ -24,7 +23,7 @@ export const PoolSelect = ({ value, onChange, includeManual = false }: PoolSelec
     contractName: "PoolManager",
     eventName: "Initialize",
     fromBlock: HOOK_DEPLOY_BLOCK,
-    watch: false,
+    watch: true,
     enabled: !!hook?.address,
   });
 

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import type { NextPage } from "next";
 import {
@@ -25,7 +26,7 @@ const sections = [
     id: "solution",
     title: "2) Solution",
     subtitle: "LaunchLock enforces time-based LP lock windows.",
-    body: "Built as a Uniswap v4 Hook: set lock schema once, then enforce unlock timing directly in pool lifecycle actions.",
+    body: "Built as a Uniswap v4 Hook: the pool owner sets a lock duration at initialization, and the hook enforces it — blocking liquidity removal until the lock expires.",
     icon: <LockClosedIcon className="h-10 w-10" />,
   },
   {
@@ -64,14 +65,14 @@ const sections = [
     bullets: [
       "Add-liquidity blocked until initializeLaunchLock is called — no liquidity before lock rules are defined",
       "Once the lock expires, liquidity removal is allowed",
-      "Optional group specific locks: resolves position key and group assignment, computes effective lock end time, reverts while locked",
+      "Optional group-specific locks: resolves position key and group assignment, computes effective lock end time, reverts while locked",
       "Owner-only initialization and config functions enforce pool-level control over lock behavior",
     ],
     icon: <ClockIcon className="h-10 w-10" />,
   },
   {
     id: "demo",
-    title: "5) Live demo",
+    title: "7) Live demo",
     subtitle: "Try it now.",
     body: "Start by creating a pool.",
     icon: <PresentationChartLineIcon className="h-10 w-10" />,
@@ -108,6 +109,7 @@ const Home: NextPage = () => {
           <span className="text-secondary">LaunchLock </span>
           Uniswap v4 Hook
         </h1>
+        <Image src="/logo.png" alt="LaunchLock" width={240} height={240} className="mb-6" />
 
         <div className="mt-8 flex flex-wrap gap-3">
           <Link href="/launchlock/create-pool" className="btn btn-outline">
