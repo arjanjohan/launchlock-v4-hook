@@ -78,6 +78,3 @@ yarn foundry:test
 - [Unichain smart contract](https://unichain-sepolia.blockscout.com/address/0x0b14cf682d7dc7ebdb5461af0c31d5199ae24a00)
 - [Vercel deployment](https://launchlock-ruby.vercel.app/)
 - [Demo video](https://youtu.be/8KKX6WCKvY0)
-
-https://launchlock-ruby.vercel.app/">App</a> |
-  <a href="https://youtu.be/8KKX6WCKvY0">

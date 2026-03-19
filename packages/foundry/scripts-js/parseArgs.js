@@ -14,6 +14,7 @@ const args = process.argv.slice(2);
 let fileName = "Deploy.s.sol";
 let network = "localhost";
 let keystoreArg = null;
+let rpcEndpoint = null;
 
 // Show help message if --help is provided
 if (args.includes("--help") || args.includes("-h")) {
@@ -75,8 +76,29 @@ try {
     );
     process.exit(1);
   }
+
+  rpcEndpoint = parsedToml.rpc_endpoints[network];
 } catch (error) {
   console.error("\n❌ Error reading or parsing foundry.toml:", error);
+  process.exit(1);
+}
+
+async function waitForLocalRpc(url, attempts = 30, delayMs = 1000) {
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    const result = spawnSync("cast", ["block-number", "--rpc-url", url], {
+      stdio: "ignore",
+    });
+
+    if (result.status === 0) {
+      return;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+
+  console.error(
+    `\n❌ Error: Local RPC at '${url}' did not become ready before deployment.`
+  );
   process.exit(1);
 }
 
@@ -152,6 +174,10 @@ The default account (scaffold-eth-default) can only be used for localhost deploy
 process.env.DEPLOY_SCRIPT = `script/${fileName}`;
 process.env.RPC_URL = network;
 process.env.ETH_KEYSTORE_ACCOUNT = selectedKeystore;
+
+if (network === "localhost") {
+  await waitForLocalRpc(rpcEndpoint);
+}
 
 const result = spawnSync("make", ["deploy-and-generate-abis"], {
   stdio: "inherit",
